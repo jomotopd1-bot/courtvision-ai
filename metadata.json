@@ -1,0 +1,6 @@
+{
+  "name": "ESPN Fantasy Basketball Sync & Analyzer",
+  "description": "Sincroniza tu liga de ESPN Fantasy Basketball, realiza análisis estadísticos avanzados, obtén sugerencias de intercambios optimizados por IA y recibe alertas en tiempo real sobre lesiones.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

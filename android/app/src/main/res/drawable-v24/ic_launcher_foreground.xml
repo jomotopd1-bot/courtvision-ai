@@ -1,0 +1,43 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportHeight="108"
+    android:viewportWidth="108">
+
+    <!-- Outer Glow Circle (Soft) -->
+    <path
+        android:fillColor="#1Aea580c"
+        android:pathData="M54,14c22.1,0 40,17.9 40,40s-17.9,40 -40,40s-40,-17.9 -40,-40s17.9,-40 40,-40" />
+
+    <!-- Basketball Shape -->
+    <path
+        android:fillColor="#ea580c"
+        android:pathData="M54,24c16.6,0 30,13.4 30,30s-13.4,30 -30,30s-30,-13.4 -30,-30s13.4,-30 30,-30" />
+
+    <!-- Basketball Lines (Circuit Style) -->
+    <path
+        android:strokeColor="#000000"
+        android:strokeWidth="1.5"
+        android:pathData="M24,54h60 M54,24v60" />
+
+    <!-- Curved Ball Lines -->
+    <path
+        android:strokeColor="#000000"
+        android:strokeWidth="1.5"
+        android:pathData="M33,33c11.5,11.5 11.5,29.5 0,41 M75,33c-11.5,11.5 -11.5,29.5 0,41" />
+
+    <!-- AI Vision Center (The Eye) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,44c5.5,0 10,4.5 10,10s-4.5,10 -10,10s-10,-4.5 -10,-10s4.5,-10 10,-10" />
+
+    <path
+        android:fillColor="#000000"
+        android:pathData="M54,49c2.8,0 5,2.2 5,5s-2.2,5 -5,5s-5,-2.2 -5,-5s2.2,-5 5,-5" />
+
+    <!-- Digital Tech Accents -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M52,28h4v4h-4z M52,76h4v4h-4z M28,52h4v4h-4z M76,52h4v4h-4z" />
+
+</vector>
