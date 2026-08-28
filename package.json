@@ -10,6 +10,9 @@
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit"
   },
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "dependencies": {
     "@capacitor/android": "^8.5.0",
     "@capacitor/core": "^8.5.0",

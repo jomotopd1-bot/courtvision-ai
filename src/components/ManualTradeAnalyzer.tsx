@@ -179,12 +179,23 @@ export default function ManualTradeAnalyzer({ teams, myTeamId, getFullUrl = (p) 
                   <CheckCircle2 className="w-6 h-6 text-emerald-500" />
                   <h4 className="text-lg font-black text-white italic uppercase tracking-tight">Análisis Final</h4>
                 </div>
-                <div className={`px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest border ${
-                  result.mlAnalysis.verdict === 'EXCELLENT' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' :
-                  result.mlAnalysis.verdict === 'FAVORABLE' ? 'bg-blue-500/10 text-blue-400 border-blue-500/30' :
-                  'bg-amber-500/10 text-amber-400 border-amber-500/30'
-                }`}>
-                  {result.mlAnalysis.verdict}
+                <div className="flex items-center gap-2">
+                  {result.mlAnalysis.modelUsed && (
+                    <span className={`px-2 py-0.5 rounded text-[9px] font-bold border ${
+                      result.mlAnalysis.modelUsed === 'offline'
+                        ? 'bg-amber-500/10 text-amber-500 border-amber-500/20'
+                        : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                    }`}>
+                      {result.mlAnalysis.modelUsed.toUpperCase()}
+                    </span>
+                  )}
+                  <div className={`px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest border ${
+                    result.mlAnalysis.verdict === 'EXCELLENT' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' :
+                    result.mlAnalysis.verdict === 'FAVORABLE' ? 'bg-blue-500/10 text-blue-400 border-blue-500/30' :
+                    'bg-amber-500/10 text-amber-400 border-amber-500/30'
+                  }`}>
+                    {result.mlAnalysis.verdict}
+                  </div>
                 </div>
               </div>
 
