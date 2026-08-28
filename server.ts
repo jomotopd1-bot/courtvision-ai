@@ -90,7 +90,16 @@ async function generateContentWithFallback(
       generationConfig: params.config
     }), 2, 1000);
 
-    return result.response.text();
+    let text = result.response.text();
+
+    // Clean potential markdown wrapping from JSON responses
+    if (text.includes('```json')) {
+      text = text.split('```json')[1].split('```')[0].trim();
+    } else if (text.includes('```')) {
+      text = text.split('```')[1].split('```')[0].trim();
+    }
+
+    return text;
   } catch (error: any) {
     console.error('Gemini API Error:', error.message);
     throw error;
@@ -333,45 +342,15 @@ IMPORTANTE: Responde en formato JSON estructurado que coincida exactamente con e
     const responseText = await generateContentWithFallback(ai, {
       contents: prompt,
       config: {
-        responseMimeType: 'application/json',
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            analysisText: { type: Type.STRING },
-            weeklyLineup: {
-              type: Type.OBJECT,
-              properties: {
-                starters: {
-                  type: Type.ARRAY,
-                  items: { type: Type.STRING }
-                },
-                bench: {
-                  type: Type.ARRAY,
-                  items: { type: Type.STRING }
-                }
-              },
-              required: ['starters', 'bench']
-            },
-            categoryStrengths: {
-              type: Type.ARRAY,
-              items: { type: Type.STRING }
-            },
-            categoryWeaknesses: {
-              type: Type.ARRAY,
-              items: { type: Type.STRING }
-            },
-            waiverTargets: {
-              type: Type.ARRAY,
-              items: { type: Type.STRING }
-            }
-          },
-          required: ['analysisText', 'weeklyLineup', 'categoryStrengths', 'categoryWeaknesses', 'waiverTargets']
-        }
+        responseMimeType: 'application/json'
       }
     });
 
     const parsedResponse = JSON.parse(responseText || '{}');
-    res.json(parsedResponse);
+    res.json({
+      ...parsedResponse,
+      modelUsed: 'gemini-1.5-flash'
+    });
 
   } catch (error: any) {
     console.log('Gemini API unavailable or quota exceeded, using high-quality offline fallback.');
@@ -429,34 +408,25 @@ Responde en español en un formato JSON estricto:
     const responseText = await generateContentWithFallback(ai, {
       contents: prompt,
       config: {
-        responseMimeType: 'application/json',
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            summary: { type: Type.STRING },
-            proposerBenefit: { type: Type.STRING },
-            receiverBenefit: { type: Type.STRING },
-            verdict: { type: Type.STRING },
-            scoreChangeProposer: { type: Type.NUMBER },
-            scoreChangeReceiver: { type: Type.NUMBER }
-          },
-          required: ['summary', 'proposerBenefit', 'receiverBenefit', 'verdict', 'scoreChangeProposer', 'scoreChangeReceiver']
-        }
+        responseMimeType: 'application/json'
       }
     });
 
     const parsedResponse = JSON.parse(responseText || '{}');
     res.json({
-      id: 'manual_trade',
+      id: 'manual_trade_' + Date.now(),
       proposerTeamName,
       receiverTeamName,
       proposerSends,
       receiverSends,
-      mlAnalysis: parsedResponse
+      mlAnalysis: {
+        ...parsedResponse,
+        modelUsed: 'gemini-1.5-flash'
+      }
     });
 
   } catch (error: any) {
-    console.log('Gemini API error in manual trade, using fallback.');
+    console.error('Gemini API error in manual trade:', error.message);
     res.json({
       id: 'manual_trade_fallback',
       proposerTeamName,
@@ -464,10 +434,16 @@ Responde en español en un formato JSON estricto:
       proposerSends,
       receiverSends,
       mlAnalysis: {
-        summary: "El intercambio parece equilibrado en términos de volumen de puntos, aunque un equipo sacrifica rebotes por asistencias.",
-        proposerBenefit: "Mejoras en la distribución de juego y triples.",
-        receiverBenefit: "Consigues mayor presencia en la pintura y rebotes.",
+        summary: "MODO OFFLINE: El intercambio parece equilibrado estadísticamente en promedios de temporada. No hay una ventaja clara inmediata para ninguno de los dos equipos.",
+        proposerBenefit: "Mantienes tu estructura estadística actual sin grandes variaciones.",
+        receiverBenefit: "Recibes jugadores con rendimiento sólido y consistente.",
         verdict: "FAVORABLE",
+        scoreChangeProposer: 0.0,
+        scoreChangeReceiver: 0.0,
+        modelUsed: 'offline-analytics'
+      }
+    });
+  }
         scoreChangeProposer: 2.5,
         scoreChangeReceiver: 2.1,
         modelUsed: 'offline-analytics'
@@ -534,102 +510,19 @@ Asegúrate de que los IDs de los equipos y jugadores correspondan EXACTAMENTE a 
     const responseText = await generateContentWithFallback(ai, {
       contents: prompt,
       config: {
-        responseMimeType: 'application/json',
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            trades: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  id: { type: Type.STRING },
-                  proposerTeamId: { type: Type.STRING },
-                  proposerTeamName: { type: Type.STRING },
-                  receiverTeamId: { type: Type.STRING },
-                  receiverTeamName: { type: Type.STRING },
-                  proposerSends: {
-                    type: Type.ARRAY,
-                    items: {
-                      type: Type.OBJECT,
-                      properties: {
-                        id: { type: Type.STRING },
-                        name: { type: Type.STRING },
-                        nbaTeam: { type: Type.STRING },
-                        injuryStatus: { type: Type.STRING },
-                        positions: {
-                          type: Type.ARRAY,
-                          items: { type: Type.STRING }
-                        },
-                        stats: {
-                          type: Type.OBJECT,
-                          properties: {
-                            pts: { type: Type.NUMBER },
-                            ast: { type: Type.NUMBER },
-                            reb: { type: Type.NUMBER },
-                            blk: { type: Type.NUMBER },
-                            stl: { type: Type.NUMBER },
-                            tov: { type: Type.NUMBER },
-                            tpm: { type: Type.NUMBER }
-                          }
-                        }
-                      },
-                      required: ['id', 'name', 'nbaTeam', 'injuryStatus', 'positions', 'stats']
-                    }
-                  },
-                  receiverSends: {
-                    type: Type.ARRAY,
-                    items: {
-                      type: Type.OBJECT,
-                      properties: {
-                        id: { type: Type.STRING },
-                        name: { type: Type.STRING },
-                        nbaTeam: { type: Type.STRING },
-                        injuryStatus: { type: Type.STRING },
-                        positions: {
-                          type: Type.ARRAY,
-                          items: { type: Type.STRING }
-                        },
-                        stats: {
-                          type: Type.OBJECT,
-                          properties: {
-                            pts: { type: Type.NUMBER },
-                            ast: { type: Type.NUMBER },
-                            reb: { type: Type.NUMBER },
-                            blk: { type: Type.NUMBER },
-                            stl: { type: Type.NUMBER },
-                            tov: { type: Type.NUMBER },
-                            tpm: { type: Type.NUMBER }
-                          }
-                        }
-                      },
-                      required: ['id', 'name', 'nbaTeam', 'injuryStatus', 'positions', 'stats']
-                    }
-                  },
-                  mlAnalysis: {
-                    type: Type.OBJECT,
-                    properties: {
-                      summary: { type: Type.STRING },
-                      proposerBenefit: { type: Type.STRING },
-                      receiverBenefit: { type: Type.STRING },
-                      verdict: { type: Type.STRING },
-                      scoreChangeProposer: { type: Type.NUMBER },
-                      scoreChangeReceiver: { type: Type.NUMBER }
-                    },
-                    required: ['summary', 'proposerBenefit', 'receiverBenefit', 'verdict', 'scoreChangeProposer', 'scoreChangeReceiver']
-                  }
-                },
-                required: ['id', 'proposerTeamId', 'proposerTeamName', 'receiverTeamId', 'receiverTeamName', 'proposerSends', 'receiverSends', 'mlAnalysis']
-              }
-            }
-          },
-          required: ['trades']
-        }
+        responseMimeType: 'application/json'
       }
     });
 
     const parsedResponse = JSON.parse(responseText || '{"trades": []}');
-    res.json(parsedResponse.trades);
+    const trades = (parsedResponse.trades || []).map((t: any) => ({
+      ...t,
+      mlAnalysis: {
+        ...t.mlAnalysis,
+        modelUsed: 'gemini-1.5-flash'
+      }
+    }));
+    res.json(trades);
 
   } catch (error: any) {
     console.log('Gemini API error in trade analyzer fallback.');

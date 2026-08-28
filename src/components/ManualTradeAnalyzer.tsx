@@ -211,6 +211,15 @@ export default function ManualTradeAnalyzer({ teams, myTeamId, getFullUrl = (p) 
                   </div>
                 </div>
               </div>
+
+              <div className="pt-6 flex justify-center">
+                <button
+                  onClick={onClose}
+                  className="px-8 py-3 bg-neutral-800 hover:bg-neutral-700 text-white text-xs font-bold uppercase tracking-widest rounded-xl transition-all border border-neutral-700"
+                >
+                  Volver al Panel Principal
+                </button>
+              </div>
             </motion.div>
           )}
         </AnimatePresence>
