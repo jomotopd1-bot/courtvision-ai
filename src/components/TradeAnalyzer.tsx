@@ -1,7 +1,8 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Sparkles, RefreshCw, CheckCircle, TrendingUp, AlertCircle, HelpCircle, ArrowLeftRight, Users, ChevronRight, Activity } from 'lucide-react';
+import { Sparkles, RefreshCw, CheckCircle, TrendingUp, AlertCircle, HelpCircle, ArrowLeftRight, Users, ChevronRight, Activity, MessageSquare } from 'lucide-react';
 import { FantasyTeam, TradeSuggestion, Player } from '../types.js';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
+import ManualTradeAnalyzer from './ManualTradeAnalyzer.js';
 import {
   ResponsiveContainer,
   LineChart,
@@ -38,6 +39,7 @@ export default function TradeAnalyzer({ teams, categoryPrefs, myTeamId, language
   const [isLoading, setIsLoading] = useState(false);
   const [suggestions, setSuggestions] = useState<TradeSuggestion[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [showManualAnalyzer, setShowManualAnalyzer] = useState(false);
 
   // States for interactive historical team comparison
   const [team1Id, setTeam1Id] = useState<string>('');
@@ -379,18 +381,43 @@ export default function TradeAnalyzer({ teams, categoryPrefs, myTeamId, language
           </p>
         </div>
 
-        <button
-          id="btn-trigger-trades"
-          onClick={fetchTradeSuggestions}
-          disabled={isLoading || teams.length < 2}
-          className={`flex items-center justify-center gap-2 px-5 py-2.5 bg-orange-600 hover:bg-orange-500 active:scale-98 text-white font-semibold rounded-xl text-xs transition duration-200 shadow-md shadow-orange-600/10 ${
-            isLoading || teams.length < 2 ? 'bg-neutral-800 text-neutral-500 shadow-none cursor-not-allowed border border-neutral-800' : ''
-          }`}
-        >
-          <Sparkles className="w-4 h-4 fill-white" />
-          {isLoading ? 'Calculando Traspasos...' : 'Generar Intercambios con IA'}
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setShowManualAnalyzer(true)}
+            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 font-semibold rounded-xl text-xs transition duration-200 border border-neutral-700"
+          >
+            <MessageSquare className="w-4 h-4" />
+            Analizar Oferta Recibida
+          </button>
+
+          <button
+            id="btn-trigger-trades"
+            onClick={fetchTradeSuggestions}
+            disabled={isLoading || teams.length < 2}
+            className={`flex items-center justify-center gap-2 px-5 py-2.5 bg-orange-600 hover:bg-orange-500 active:scale-98 text-white font-semibold rounded-xl text-xs transition duration-200 shadow-md shadow-orange-600/10 ${
+              isLoading || teams.length < 2 ? 'bg-neutral-800 text-neutral-500 shadow-none cursor-not-allowed border border-neutral-800' : ''
+            }`}
+          >
+            <Sparkles className="w-4 h-4 fill-white" />
+            {isLoading ? 'Calculando...' : 'Autosugerir Traspasos'}
+          </button>
+        </div>
       </div>
+
+      <AnimatePresence>
+        {showManualAnalyzer && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md overflow-y-auto">
+            <div className="max-w-4xl w-full my-8">
+              <ManualTradeAnalyzer
+                teams={teams}
+                myTeamId={myTeamId}
+                getFullUrl={getFullUrl}
+                onClose={() => setShowManualAnalyzer(false)}
+              />
+            </div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {isLoading && (
         <div id="trades-loading" className="flex flex-col items-center justify-center py-16 text-center">

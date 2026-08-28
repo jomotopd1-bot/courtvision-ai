@@ -27,7 +27,13 @@ import LoginScreen from './components/LoginScreen.js';
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
-  const [isGuest, setIsGuest] = useState(false);
+  const [isGuest, setIsGuest] = useState(() => {
+    return localStorage.getItem('courtvision_is_guest') === 'true';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('courtvision_is_guest', isGuest.toString());
+  }, [isGuest]);
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [apiUrl, setApiUrl] = useState(() => {
@@ -124,6 +130,7 @@ export default function App() {
   });
   
   useEffect(() => {
+    localStorage.setItem('courtvision_saved_leagues', JSON.stringify(savedLeagues));
     if (user) saveToFirestore({ savedLeagues });
   }, [savedLeagues, user]);
 
@@ -169,11 +176,26 @@ export default function App() {
   });
   const [timeLeft, setTimeLeft] = useState<number>(600); // 10 minutes for auto sync
 
-  // Load the beautiful demo league and news on initial render so the app is instantly ready
+  // Load initial data on mount
   useEffect(() => {
-    handleSync({ leagueId: 'demo', seasonId: '2027' });
     fetchNews();
-  }, []);
+
+    // Auto-load last saved league if exists and no league is active
+    if (!league && savedLeagues.length > 0) {
+      const lastLeagueId = localStorage.getItem('courtvision_last_league_id');
+      const leagueToLoad = savedLeagues.find(l => l.leagueId === lastLeagueId) || savedLeagues[0];
+      if (leagueToLoad) {
+        handleSync(leagueToLoad);
+      }
+    }
+  }, [user]);
+
+  // Track last active league
+  useEffect(() => {
+    if (league && league.id !== 'demo') {
+      localStorage.setItem('courtvision_last_league_id', league.id);
+    }
+  }, [league]);
 
   const fetchNews = async () => {
     try {
@@ -245,7 +267,6 @@ export default function App() {
             } else {
               updated.push(newSavedLeague);
             }
-            localStorage.setItem('courtvision_saved_leagues', JSON.stringify(updated));
             return updated;
           });
         }
@@ -498,11 +519,31 @@ export default function App() {
               {league && (
                 <div className="flex flex-col items-end">
                   <span className="text-[9px] font-black text-orange-500 uppercase tracking-widest leading-none mb-1">Active League</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-white max-w-[120px] truncate">{league.name}</span>
-                    <div className="px-1.5 py-0.5 bg-white/5 border border-white/10 rounded text-[9px] font-mono text-neutral-500 uppercase">
-                      {isDemo ? 'Demo' : 'Sync'}
-                    </div>
+                  <div className="flex items-center gap-1 group/select relative">
+                    <select
+                      className="bg-transparent text-xs font-bold text-white outline-none cursor-pointer appearance-none text-right pr-5 relative z-10 hover:text-orange-400 transition-colors"
+                      value={league.id}
+                      onChange={(e) => {
+                        if (e.target.value === 'add_new') {
+                          setLeague(null);
+                          setSyncSuccess(false);
+                        } else {
+                          const selectedSaved = savedLeagues.find(l => l.leagueId === e.target.value);
+                          if (selectedSaved) {
+                            handleSync(selectedSaved);
+                          }
+                        }
+                      }}
+                    >
+                      {savedLeagues.map((l, idx) => (
+                        <option key={`${l.leagueId}-${idx}`} value={l.leagueId} className="bg-neutral-900">
+                          {l.name} ({l.seasonId})
+                        </option>
+                      ))}
+                      <option value={league.id} className="bg-neutral-900">{league.name}</option>
+                      <option value="add_new" className="bg-neutral-900 text-orange-400 font-bold">+ Agregar nueva liga...</option>
+                    </select>
+                    <ChevronRight className="w-3 h-3 text-orange-500 rotate-90 absolute right-0 pointer-events-none group-hover/select:translate-y-0.5 transition-transform" />
                   </div>
                 </div>
               )}

@@ -85,7 +85,7 @@ export default function LoginScreen({ onGuestLogin }: { onGuestLogin?: () => voi
                 onClick={onGuestLogin}
                 className="w-full bg-neutral-800 hover:bg-neutral-700 text-white font-medium py-3 px-4 rounded-xl transition duration-200"
               >
-                Continuar como Invitado (Modo Demo)
+                Continuar como Invitado
               </button>
             )}
           </div>
