@@ -2,7 +2,7 @@ apply plugin: 'com.android.application'
 
 android {
     namespace = "com.draftadvisor.app"
-    compileSdk 36
+    compileSdk rootProject.ext.compileSdkVersion
     defaultConfig {
         applicationId "com.draftadvisor.app"
         minSdkVersion rootProject.ext.minSdkVersion
