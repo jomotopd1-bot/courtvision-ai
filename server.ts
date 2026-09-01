@@ -38,13 +38,13 @@ function getAI() {
   return genAI;
 }
 
-// Helper ultra-robusto para Gemini usando REST directo (evita bugs de versión del SDK)
+// Helper ultra-robusto para Gemini usando REST directo
 async function askAI(prompt: string) {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error('API Key no configurada en Render.');
 
-  // Intentamos con v1 estable directamente vía REST
-  const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+  // Intentamos con v1beta que es la que soporta Gemini 1.5 Flash actualmente vía REST
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
 
   try {
     const response = await fetch(url, {
@@ -63,18 +63,37 @@ async function askAI(prompt: string) {
 
     if (!response.ok) {
       console.error('[GEMINI REST ERROR]', JSON.stringify(data));
-      throw new Error(data.error?.message || `Error del servidor de Google (${response.status})`);
+      // Si falla por el modelo, intentamos con gemini-pro que es más estable en v1
+      if (data.error?.message?.includes('not supported')) {
+         return await askAIFallback(prompt, apiKey);
+      }
+      throw new Error(data.error?.message || `Error de Google (${response.status})`);
     }
 
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!text) throw new Error('Gemini devolvió una respuesta vacía o sin candidatos.');
+    if (!text) throw new Error('Respuesta de IA vacía.');
 
     const jsonStr = text.replace(/```json\n?|```/g, '').trim();
     return JSON.parse(jsonStr);
   } catch (err: any) {
-    console.error('[AI FINAL FALLBACK ERROR]', err.message);
-    throw new Error(`La IA no pudo procesar tu solicitud: ${err.message}`);
+    console.error('[AI FINAL ERROR]', err.message);
+    throw new Error(`Error de IA: ${err.message}`);
   }
+}
+
+async function askAIFallback(prompt: string, apiKey: string) {
+  const url = `https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=${apiKey}`;
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }]
+    })
+  });
+  const data: any = await response.json();
+  const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+  const jsonStr = (text || "").replace(/```json\n?|```/g, '').trim();
+  return JSON.parse(jsonStr);
 }
 
 // --- HELPERS Y MAPEOS ---
