@@ -44,6 +44,7 @@ function compactTeams(teams: any[]) {
   }));
 }
 
+// Helper ultra-robusto para Gemini usando REST directo
 async function askAI(prompt: string, rawData?: any) {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error('API Key no configurada en Render.');
@@ -54,33 +55,35 @@ async function askAI(prompt: string, rawData?: any) {
     fullPrompt += `\nDATOS: ${JSON.stringify(data)}`;
   }
 
-  // Google API Endpoint (v1beta for Flash 1.5)
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+  // Intentos: 1. gemini-pro (v1), 2. gemini-1.5-flash (v1beta)
+  const attempts = [
+    { url: `https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=${apiKey}`, name: 'gemini-pro' },
+    { url: `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, name: 'gemini-1.5-flash' }
+  ];
 
-  try {
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: fullPrompt }] }],
-        generationConfig: { responseMimeType: 'application/json', temperature: 0.1 }
-      })
-    });
-
-    if (!response.ok) {
-      const err = await response.json().catch(() => ({}));
-      throw new Error(err.error?.message || `Error Google ${response.status}`);
+  let lastError = '';
+  for (const attempt of attempts) {
+    try {
+      const response = await fetch(attempt.url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: fullPrompt }] }],
+          generationConfig: { temperature: 0.1 }
+        })
+      });
+      const data: any = await response.json();
+      if (response.ok) {
+        const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (text) return extractJSON(text);
+      } else {
+        lastError = data.error?.message || `Status ${response.status}`;
+      }
+    } catch (e: any) {
+      lastError = e.message;
     }
-
-    const data: any = await response.json();
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!text) throw new Error("IA devolvió respuesta vacía.");
-
-    return extractJSON(text);
-  } catch (err: any) {
-    console.error('[AI ERROR]', err.message);
-    throw err;
   }
+  throw new Error(`La IA no pudo procesar tu solicitud: ${lastError}`);
 }
 
 // --- NBA MAPPINGS ---
