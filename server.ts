@@ -32,6 +32,7 @@ function getAI() {
   if (!genAI) {
     const key = process.env.GEMINI_API_KEY;
     if (!key) throw new Error('Falta GEMINI_API_KEY en las variables de entorno.');
+    // Forzamos v1 en el constructor global
     genAI = new GoogleGenerativeAI(key);
   }
   return genAI;
@@ -40,31 +41,46 @@ function getAI() {
 // Helper robusto para Gemini
 async function askAI(prompt: string) {
   const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    throw new Error('API Key de Gemini no configurada en el servidor (Render).');
-  }
+  if (!apiKey) throw new Error('API Key no configurada en Render.');
 
   const client = getAI();
-  try {
-    const model = client.getGenerativeModel({
-      model: 'gemini-1.5-flash',
-      generationConfig: { responseMimeType: 'application/json' }
-    });
 
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const text = response.text();
+  // Lista de modelos a intentar en orden de estabilidad
+  const modelsToTry = [
+    { name: 'gemini-1.5-flash', version: 'v1' },
+    { name: 'gemini-1.5-flash-latest', version: 'v1' },
+    { name: 'gemini-pro', version: 'v1' }
+  ];
 
-    if (!text) throw new Error('Gemini devolvió una respuesta vacía');
+  let lastError = null;
 
-    // Limpiar posibles bloques de código markdown
-    const jsonStr = text.replace(/```json\n?|```/g, '').trim();
+  for (const modelCfg of modelsToTry) {
+    try {
+      const model = client.getGenerativeModel({
+        model: modelCfg.name
+      }, { apiVersion: modelCfg.version as any });
 
-    return JSON.parse(jsonStr);
-  } catch (err: any) {
-    console.error('[AI ERROR DETAILS]', err);
-    throw new Error(`Error de IA: ${err.message || 'Fallo desconocido'}`);
+      const result = await model.generateContent({
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        generationConfig: {
+          responseMimeType: 'application/json',
+          temperature: 0.7
+        }
+      });
+
+      const response = await result.response;
+      const text = response.text();
+      if (!text) continue;
+
+      const jsonStr = text.replace(/```json\n?|```/g, '').trim();
+      return JSON.parse(jsonStr);
+    } catch (err: any) {
+      console.error(`[AI TRY FAILED] ${modelCfg.name}:`, err.message);
+      lastError = err;
+    }
   }
+
+  throw new Error(`Fallo total de IA tras varios intentos. Último error: ${lastError?.message || 'Desconocido'}`);
 }
 
 // --- HELPERS Y MAPEOS ---

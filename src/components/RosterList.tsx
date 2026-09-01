@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { User, Activity, AlertCircle, Sparkles, TrendingUp } from 'lucide-react';
+import { User, Activity, AlertCircle, Sparkles, TrendingUp, Zap } from 'lucide-react';
 import { Player } from '../types';
 
 const FAVORABLE_MATCHUPS: Record<string, { opponent: string; difficulty: string; reason: string }> = {
