@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Player } from '../types.js';
+import { Player } from '../types';
 import { Users, ArrowRightLeft } from 'lucide-react';
 
 interface PlayerComparisonProps {
@@ -159,3 +159,4 @@ export default function PlayerComparison({ roster }: PlayerComparisonProps) {
     </div>
   );
 }
+

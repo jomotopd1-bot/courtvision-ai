@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { User, Activity, AlertCircle, Sparkles, TrendingUp } from 'lucide-react';
-import { Player } from '../types.js';
+import { Player } from '../types';
 
 const FAVORABLE_MATCHUPS: Record<string, { opponent: string; difficulty: string; reason: string }> = {
   'DAL': { opponent: 'CHA', difficulty: 'Muy Favorable', reason: 'Defensa débil en transición' },
@@ -38,7 +38,8 @@ export default function RosterList({ roster, teamName, categoryPrefs }: RosterLi
     return player.stats.pts >= 22 || player.stats.ast >= 8 || player.stats.reb >= 10;
   };
 
-  const filteredRoster = roster.filter((player) => {
+  const filteredRoster = (roster || []).filter((player) => {
+    if (!player) return false;
     if (activeFilter === 'injured') {
       return player.injuryStatus !== 'ACTIVE';
     }
@@ -227,7 +228,7 @@ export default function RosterList({ roster, teamName, categoryPrefs }: RosterLi
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 mb-1">
                       <h4 className="text-base font-black text-white tracking-tight truncate uppercase italic">{player.name}</h4>
-                      {isHighPerforming(player) && (
+                      {player.stats && isHighPerforming(player) && (
                         <div className="w-2 h-2 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.6)]"></div>
                       )}
                     </div>
@@ -247,42 +248,50 @@ export default function RosterList({ roster, teamName, categoryPrefs }: RosterLi
 
                 {/* Estadísticas - Grilla de Alto Impacto */}
                 <div className="grid grid-cols-3 sm:grid-cols-6 lg:grid-cols-9 gap-4 flex-1 max-w-3xl">
-                  {activeKeys.includes('pts') && (
+                  {player.stats && activeKeys.includes('pts') && (
                     <div className="flex flex-col">
                       <span className="text-[9px] font-black text-neutral-500 uppercase tracking-widest mb-1">Points</span>
-                      <span className={`text-sm font-mono font-bold ${player.stats.pts >= 22 ? 'text-orange-500' : 'text-white'}`}>
-                        {player.stats.pts.toFixed(1)}
+                      <span className={`text-sm font-mono font-bold ${(player.stats.pts || 0) >= 22 ? 'text-orange-500' : 'text-white'}`}>
+                        {(player.stats.pts || 0).toFixed(1)}
                       </span>
                     </div>
                   )}
-                  {activeKeys.includes('reb') && (
+                  {player.stats && activeKeys.includes('reb') && (
                     <div className="flex flex-col">
                       <span className="text-[9px] font-black text-neutral-500 uppercase tracking-widest mb-1">Reb</span>
-                      <span className="text-sm font-mono font-bold text-white">{player.stats.reb.toFixed(1)}</span>
+                      <span className="text-sm font-mono font-bold text-white">{(player.stats.reb || 0).toFixed(1)}</span>
                     </div>
                   )}
-                  {activeKeys.includes('ast') && (
+                  {player.stats && activeKeys.includes('ast') && (
                     <div className="flex flex-col">
                       <span className="text-[9px] font-black text-neutral-500 uppercase tracking-widest mb-1">Ast</span>
-                      <span className="text-sm font-mono font-bold text-white">{player.stats.ast.toFixed(1)}</span>
+                      <span className="text-sm font-mono font-bold text-white">{(player.stats.ast || 0).toFixed(1)}</span>
                     </div>
                   )}
-                  {activeKeys.includes('stl') && (
+                  {player.stats && activeKeys.includes('stl') && (
                     <div className="flex flex-col">
                       <span className="text-[9px] font-black text-neutral-500 uppercase tracking-widest mb-1">Stl</span>
-                      <span className="text-sm font-mono font-bold text-white">{player.stats.stl.toFixed(1)}</span>
+                      <span className="text-sm font-mono font-bold text-white">{(player.stats.stl || 0).toFixed(1)}</span>
                     </div>
                   )}
-                  {activeKeys.includes('blk') && (
+                  {player.stats && activeKeys.includes('blk') && (
                     <div className="flex flex-col">
                       <span className="text-[9px] font-black text-neutral-500 uppercase tracking-widest mb-1">Blk</span>
-                      <span className="text-sm font-mono font-bold text-white">{player.stats.blk.toFixed(1)}</span>
+                      <span className="text-sm font-mono font-bold text-white">{(player.stats.blk || 0).toFixed(1)}</span>
                     </div>
                   )}
-                  {activeKeys.includes('tpm') && (
+                  {player.stats && activeKeys.includes('tpm') && (
                     <div className="flex flex-col">
                       <span className="text-[9px] font-black text-neutral-500 uppercase tracking-widest mb-1">3PM</span>
-                      <span className="text-sm font-mono font-bold text-white">{player.stats.tpm.toFixed(1)}</span>
+                      <span className="text-sm font-mono font-bold text-white">{(player.stats.tpm || 0).toFixed(1)}</span>
+                    </div>
+                  )}
+                  {player.stats && activeKeys.includes('tov') && (
+                    <div className="flex flex-col">
+                      <span className="text-[9px] font-black text-neutral-500 uppercase tracking-widest mb-1">TOV</span>
+                      <span className={`text-sm font-mono font-bold ${(player.stats.tov || 0) >= 3.5 ? 'text-red-400' : 'text-white'}`}>
+                        {(player.stats.tov || 0).toFixed(1)}
+                      </span>
                     </div>
                   )}
                 </div>
@@ -316,4 +325,5 @@ export default function RosterList({ roster, teamName, categoryPrefs }: RosterLi
     </div>
   );
 }
+
 

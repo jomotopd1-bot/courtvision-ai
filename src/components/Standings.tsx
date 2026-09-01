@@ -1,5 +1,5 @@
 import { Trophy, Users, ShieldAlert } from 'lucide-react';
-import { FantasyTeam } from '../types.js';
+import { FantasyTeam } from '../types';
 
 interface StandingsProps {
   teams: FantasyTeam[];
@@ -7,9 +7,9 @@ interface StandingsProps {
   onSelectTeam: (teamId: string) => void;
 }
 
-export default function Standings({ teams, selectedTeamId, onSelectTeam }: StandingsProps) {
+export default function Standings({ teams = [], selectedTeamId, onSelectTeam }: StandingsProps) {
   // Sort teams by ranking
-  const sortedTeams = [...teams].sort((a, b) => a.ranking - b.ranking);
+  const sortedTeams = [...(teams || [])].sort((a, b) => (a?.ranking || 0) - (b?.ranking || 0));
 
   return (
     <div id="standings-card" className="bg-neutral-900/50 rounded-2xl border border-neutral-800 p-6 shadow-sm">
@@ -30,10 +30,14 @@ export default function Standings({ teams, selectedTeamId, onSelectTeam }: Stand
           </thead>
           <tbody className="divide-y divide-neutral-800/40">
             {sortedTeams.map((team) => {
+              if (!team) return null;
               const isSelected = team.id === selectedTeamId;
-              const totalGames = team.record.wins + team.record.losses + team.record.ties;
-              const pct = totalGames > 0 ? ((team.record.wins + team.record.ties * 0.5) / totalGames).toFixed(3) : '.000';
-              const isUserTeam = team.id === 'team_user' || team.owner.includes('Tú');
+              const wins = team.record?.wins || 0;
+              const losses = team.record?.losses || 0;
+              const ties = team.record?.ties || 0;
+              const totalGames = wins + losses + ties;
+              const pct = totalGames > 0 ? ((wins + ties * 0.5) / totalGames).toFixed(3) : '.000';
+              const isUserTeam = team.id === 'team_user' || (team.owner || '').includes('Tú');
 
               return (
                 <tr
@@ -107,3 +111,4 @@ export default function Standings({ teams, selectedTeamId, onSelectTeam }: Stand
     </div>
   );
 }
+

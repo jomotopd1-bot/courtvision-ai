@@ -1,28 +1,30 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { League, FantasyTeam, NewsAlert, SavedLeague } from './types.js';
-import LeagueSync from './components/LeagueSync.js';
-import Standings from './components/Standings.js';
-import RosterList from './components/RosterList.js';
-import LineupOptimizer from './components/LineupOptimizer.js';
-import TradeAnalyzer from './components/TradeAnalyzer.js';
-import NewsFeed from './components/NewsFeed.js';
-import DraftAdvisor from './components/DraftAdvisor.js';
-import TeamWeeklyChart from './components/TeamWeeklyChart.js';
-import WaiverWire from './components/WaiverWire.js';
-import OpponentForecast from './components/OpponentForecast.js';
-import AppPreferences from './components/AppPreferences.js';
-import PlayerComparison from './components/PlayerComparison.js';
-import SettingsModal from './components/SettingsModal.js';
-import MyTeamEditor from './components/MyTeamEditor.js';
+import { League, FantasyTeam, NewsAlert, SavedLeague } from './types';
+import LeagueSync from './components/LeagueSync';
+import Standings from './components/Standings';
+import RosterList from './components/RosterList';
+import LineupOptimizer from './components/LineupOptimizer';
+import TradeAnalyzer from './components/TradeAnalyzer';
+import NewsFeed from './components/NewsFeed';
+import DraftAdvisor from './components/DraftAdvisor';
+import TeamWeeklyChart from './components/TeamWeeklyChart';
+import WaiverWire from './components/WaiverWire';
+import OpponentForecast from './components/OpponentForecast';
+import AppPreferences from './components/AppPreferences';
+import PlayerComparison from './components/PlayerComparison';
+import SettingsModal from './components/SettingsModal';
+import MyTeamEditor from './components/MyTeamEditor';
 import { Activity, LayoutDashboard, RefreshCw, Bell, Brain, AlertTriangle, Sparkles, Zap, ChevronRight, CheckCircle2, Compass, Clock, UserPlus, ShieldAlert, ArrowRightLeft, Settings, LogOut } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { auth, signInWithGoogle, logout, db } from './lib/firebase.js';
+import { auth, signInWithGoogle, logout, db } from './lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { MOCK_LEAGUE, MOCK_NEWS } from './demoLeagueData.js';
+import { MOCK_LEAGUE, MOCK_NEWS } from './demoLeagueData';
 
 
-import LoginScreen from './components/LoginScreen.js';
+import LoginScreen from './components/LoginScreen';
+
+const DEFAULT_API_URL = 'https://courtvision-backend-bp20.onrender.com';
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -37,7 +39,7 @@ export default function App() {
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [apiUrl, setApiUrl] = useState(() => {
-    return localStorage.getItem('courtvision_api_url') || '';
+    return localStorage.getItem('courtvision_api_url') || DEFAULT_API_URL;
   });
   const [language, setLanguage] = useState<'es' | 'en'>(() => {
     return (localStorage.getItem('courtvision_language') as 'es' | 'en') || 'es';
@@ -144,7 +146,8 @@ export default function App() {
     const saved = localStorage.getItem('courtvision_category_prefs');
     if (saved) {
       try {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed === 'object') return parsed;
       } catch (e) {
       }
     }
@@ -174,7 +177,8 @@ export default function App() {
     leagueId: 'demo',
     seasonId: '2027'
   });
-  const [timeLeft, setTimeLeft] = useState<number>(600); // 10 minutes for auto sync
+  const AUTO_SYNC_SECONDS = 300; // 5 minutes to keep Render warm and refresh data reliably
+  const [timeLeft, setTimeLeft] = useState<number>(AUTO_SYNC_SECONDS);
 
   // Load initial data on mount
   useEffect(() => {
@@ -202,15 +206,15 @@ export default function App() {
       const res = await fetch(getFullUrl('/api/news'));
       if (res.ok) {
         const data = await res.json();
-        setNews(data);
+        setNews(Array.isArray(data) ? data : []);
       } else {
         // Fallback for standalone demo
-        setNews(MOCK_NEWS);
+        setNews(MOCK_NEWS || []);
       }
     } catch (err) {
       console.error('Error fetching news:', err);
       // Fallback for standalone demo
-      setNews(MOCK_NEWS);
+      setNews(MOCK_NEWS || []);
     }
   };
 
@@ -244,7 +248,17 @@ export default function App() {
       });
 
       clearTimeout(timeoutId);
-      const data = await response.json();
+      const responseText = await response.text();
+      let data: any = null;
+      try {
+        data = responseText ? JSON.parse(responseText) : null;
+      } catch {
+        data = null;
+      }
+
+      if (!response.ok) {
+        throw new Error(data?.error || `El servidor respondió con HTTP ${response.status}`);
+      }
 
       if (data.success) {
         setLeague(data.league);
@@ -316,18 +330,55 @@ export default function App() {
         setTimeLeft((prev) => {
           if (prev <= 1) {
             handleSyncRef.current(lastSyncParams, true);
-            return 600;
+            return AUTO_SYNC_SECONDS;
           }
           return prev - 1;
         });
       }, 1000);
     } else {
-      setTimeLeft(600);
+      setTimeLeft(AUTO_SYNC_SECONDS);
     }
     return () => {
       if (intervalId) clearInterval(intervalId);
     };
-  }, [isAutoSyncEnabled, lastSyncParams]);
+  }, [isAutoSyncEnabled, lastSyncParams, AUTO_SYNC_SECONDS]);
+
+  useEffect(() => {
+    if (!isAutoSyncEnabled) return;
+
+    const keepServerWarm = async () => {
+      try {
+        const healthRes = await fetch(getFullUrl('/api/health'), { cache: 'no-store' });
+        if (!healthRes.ok) return;
+        if (lastSyncParams.leagueId) {
+          handleSyncRef.current(lastSyncParams, true);
+        }
+      } catch (error) {
+        console.warn('Background sync ping failed:', error);
+      }
+    };
+
+    const onVisibility = () => {
+      if (!document.hidden) {
+        keepServerWarm();
+      }
+    };
+
+    const onOnline = () => keepServerWarm();
+    const onFocus = () => keepServerWarm();
+
+    window.addEventListener('focus', onFocus);
+    window.addEventListener('online', onOnline);
+    document.addEventListener('visibilitychange', onVisibility);
+
+    keepServerWarm();
+
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      window.removeEventListener('online', onOnline);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [isAutoSyncEnabled, apiUrl, lastSyncParams]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -399,7 +450,18 @@ export default function App() {
   };
 
   const myTeamId = league ? myTeamIds[league.id] : undefined;
-  const myTeam = league?.teams.find(t => t.id === myTeamId) || null;
+  const myTeam = league?.teams ? (league.teams.find(t => t.id === myTeamId) || null) : null;
+  const selectedTeam = league?.teams ? (league.teams.find(t => t.id === selectedTeamId) || league.teams[0] || null) : null;
+
+  const currentMatchup = (league?.matchups && Array.isArray(league.matchups)) ? league.matchups.find(m =>
+    myTeamId && (m.homeTeamId === myTeamId || m.awayTeamId === myTeamId) &&
+    m.matchupPeriod === league.currentPeriod
+  ) : null;
+
+  const opponentTeamId = currentMatchup
+    ? (currentMatchup.homeTeamId === myTeamId ? currentMatchup.awayTeamId : currentMatchup.homeTeamId)
+    : null;
+  const opponentTeam = league?.teams ? (league.teams.find(t => t.id === opponentTeamId) || null) : null;
 
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const prevMyTeamRef = useRef<any>(null);
@@ -445,18 +507,6 @@ export default function App() {
       prevMyTeamRef.current = myTeam;
     }
   }, [myTeam, notificationsEnabled, language]);
-
-  const selectedTeam = league?.teams.find(t => t.id === selectedTeamId) || null;
-
-  const currentMatchup = league?.matchups.find(m => 
-    myTeamId && (m.homeTeamId === myTeamId || m.awayTeamId === myTeamId) && 
-    m.matchupPeriod === league.currentPeriod
-  );
-
-  const opponentTeamId = currentMatchup 
-    ? (currentMatchup.homeTeamId === myTeamId ? currentMatchup.awayTeamId : currentMatchup.homeTeamId) 
-    : null;
-  const opponentTeam = league?.teams.find(t => t.id === opponentTeamId) || null;
 
   if (authLoading) {
     return (
@@ -690,7 +740,7 @@ export default function App() {
                 >
                   <Bell className="w-4 h-4" />
                   Noticias & Lesiones
-                  {news.some(n => !n.read) && (
+                  {Array.isArray(news) && news.some(n => !n.read) && (
                     <span className="w-2 h-2 bg-red-500 rounded-full border border-white absolute top-1.5 right-2"></span>
                   )}
                 </button>
@@ -947,7 +997,9 @@ export default function App() {
         apiUrl={apiUrl}
         setApiUrl={setApiUrl}
         onTestConnection={handleTestConnection}
+        onResetApiUrl={() => setApiUrl(DEFAULT_API_URL)}
       />
     </div>
   );
 }
+

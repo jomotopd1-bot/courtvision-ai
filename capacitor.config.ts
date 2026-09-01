@@ -5,7 +5,12 @@ const config: CapacitorConfig = {
   appName: 'CourtVision AI',
   webDir: 'dist',
   server: {
-    androidScheme: 'http'
+    androidScheme: 'https'
+  },
+  plugins: {
+    CapacitorHttp: {
+      enabled: true
+    }
   }
 };
 

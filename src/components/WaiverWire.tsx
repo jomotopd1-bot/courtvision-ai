@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Player, WaiverRecommendation } from '../types.js';
+import { Player, WaiverRecommendation } from '../types';
 import { Sparkles, TrendingDown, UserPlus, AlertCircle, ArrowUpRight, Activity, Percent, Flame, RefreshCw, HelpCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 

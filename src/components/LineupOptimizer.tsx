@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Sparkles, Brain, Check, ShieldAlert, Target, ClipboardList, HelpCircle } from 'lucide-react';
-import { Player } from '../types.js';
+import { Player } from '../types';
 import { motion } from 'motion/react';
 
 interface LineupOptimizerProps {
@@ -254,3 +254,4 @@ export default function LineupOptimizer({ roster, teamName, getFullUrl = (p) => 
     </div>
   );
 }
+

@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { FantasyTeam, Player, NewsAlert } from '../types.js';
+import { FantasyTeam, Player, NewsAlert } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   AlertTriangle,
@@ -386,3 +386,4 @@ export default function InjuryTracker({ teams, alerts }: InjuryTrackerProps) {
     </div>
   );
 }
+

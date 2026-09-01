@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Player, FantasyTeam, League } from '../types.js';
+import { Player, FantasyTeam, League } from '../types';
 import { UserMinus, UserPlus, Save, X, Edit2, Star } from 'lucide-react';
 import { motion } from 'motion/react';
 
@@ -212,3 +212,4 @@ export default function MyTeamEditor({ league, myTeamId, onSetMyTeam, onUpdateTe
     </div>
   );
 }
+

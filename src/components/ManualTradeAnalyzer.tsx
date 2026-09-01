@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { Sparkles, ArrowLeftRight, Trash2, Plus, Brain, CheckCircle2, AlertTriangle, TrendingUp, X } from 'lucide-react';
-import { FantasyTeam, Player, TradeSuggestion } from '../types.js';
+import { FantasyTeam, Player, TradeSuggestion } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface ManualTradeAnalyzerProps {
@@ -245,3 +245,4 @@ export default function ManualTradeAnalyzer({ teams, myTeamId, getFullUrl = (p) 
     </motion.div>
   );
 }
+

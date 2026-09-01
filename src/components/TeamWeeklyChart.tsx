@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Player } from '../types.js';
+import { Player } from '../types';
 import {
   ResponsiveContainer,
   ComposedChart,
@@ -98,7 +98,7 @@ export default function TeamWeeklyChart({ roster, teamName, categoryPrefs }: Tea
 
   // Generate deterministic weekly schedule and stats based on actual player data
   const weeklyData = useMemo(() => {
-    if (!roster || roster.length === 0) return [];
+    if (!roster || !Array.isArray(roster) || roster.length === 0) return [];
 
     return DAYS_OF_WEEK.map((day) => {
       let pts = 0;
@@ -115,6 +115,7 @@ export default function TeamWeeklyChart({ roster, teamName, categoryPrefs }: Tea
       let activeCount = 0;
 
       roster.forEach((player) => {
+        if (!player || !player.stats) return;
         // Deterministic schedule check: does this player play today?
         const seedStr = `${player.id}-${day}`;
         const rand = createSeededRandom(seedStr);
@@ -126,9 +127,9 @@ export default function TeamWeeklyChart({ roster, teamName, categoryPrefs }: Tea
           activeCount++;
           // Add player's base average stats + realistic variation (variance of up to 30%)
           const varianceMultiplier = 0.85 + rand() * 0.3; // between 0.85 and 1.15
-          pts += Math.round(player.stats.pts * varianceMultiplier);
-          reb += Math.round(player.stats.reb * varianceMultiplier);
-          ast += Math.round(player.stats.ast * varianceMultiplier);
+          pts += Math.round((player.stats.pts || 0) * varianceMultiplier);
+          reb += Math.round((player.stats.reb || 0) * varianceMultiplier);
+          ast += Math.round((player.stats.ast || 0) * varianceMultiplier);
           stl += Math.round((player.stats.stl || 0) * varianceMultiplier);
           blk += Math.round((player.stats.blk || 0) * varianceMultiplier);
           tov += Math.round((player.stats.tov || 0) * varianceMultiplier);
@@ -141,9 +142,9 @@ export default function TeamWeeklyChart({ roster, teamName, categoryPrefs }: Tea
           // Injured players have a tiny chance of getting accidental minor minutes if they play through injury
           activeCount++;
           const dm = 0.4;
-          pts += Math.round(player.stats.pts * dm);
-          reb += Math.round(player.stats.reb * 0.5);
-          ast += Math.round(player.stats.ast * dm);
+          pts += Math.round((player.stats.pts || 0) * dm);
+          reb += Math.round((player.stats.reb || 0) * 0.5);
+          ast += Math.round((player.stats.ast || 0) * dm);
           stl += Math.round((player.stats.stl || 0) * dm);
           blk += Math.round((player.stats.blk || 0) * dm);
           tov += Math.round((player.stats.tov || 0) * dm);
@@ -177,20 +178,23 @@ export default function TeamWeeklyChart({ roster, teamName, categoryPrefs }: Tea
 
   // Compute total weekly stats
   const totals = useMemo(() => {
+    if (!weeklyData || weeklyData.length === 0) {
+      return { pts: 0, reb: 0, ast: 0, stl: 0, blk: 0, tov: 0, tpm: 0, fgm: 0, fga: 0, ftm: 0, fta: 0, games: 0 };
+    }
     return weeklyData.reduce(
       (acc, curr) => {
-        acc.pts += curr.Puntos;
-        acc.reb += curr.Rebotes;
-        acc.ast += curr.Asistencias;
-        acc.stl += curr.Robos;
-        acc.blk += curr.Bloqueos;
-        acc.tov += curr.Pérdidas;
-        acc.tpm += curr.Triples;
-        acc.fgm += curr.TCM;
-        acc.fga += curr.TCA;
-        acc.ftm += curr.TLM;
-        acc.fta += curr.TLA;
-        acc.games += curr.JugadoresActivos;
+        acc.pts += (curr.Puntos || 0);
+        acc.reb += (curr.Rebotes || 0);
+        acc.ast += (curr.Asistencias || 0);
+        acc.stl += (curr.Robos || 0);
+        acc.blk += (curr.Bloqueos || 0);
+        acc.tov += (curr.Pérdidas || 0);
+        acc.tpm += (curr.Triples || 0);
+        acc.fgm += (curr.TCM || 0);
+        acc.fga += (curr.TCA || 0);
+        acc.ftm += (curr.TLM || 0);
+        acc.fta += (curr.TLA || 0);
+        acc.games += (curr.JugadoresActivos || 0);
         return acc;
       },
       { pts: 0, reb: 0, ast: 0, stl: 0, blk: 0, tov: 0, tpm: 0, fgm: 0, fga: 0, ftm: 0, fta: 0, games: 0 }
@@ -207,16 +211,23 @@ export default function TeamWeeklyChart({ roster, teamName, categoryPrefs }: Tea
 
   // Highlight high-performance stats
   const maxStats = useMemo(() => {
+    if (!weeklyData || weeklyData.length === 0) {
+      return { pts: 0, reb: 0, ast: 0, stl: 0, blk: 0, tov: 0, tpm: 0, fgPct: 0, ftPct: 0 };
+    }
+    const safeMax = (arr: number[]) => {
+      const filtered = arr.filter(n => !isNaN(n));
+      return filtered.length > 0 ? Math.max(...filtered) : 0;
+    };
     return {
-      pts: Math.max(...weeklyData.map(d => d.Puntos)),
-      reb: Math.max(...weeklyData.map(d => d.Rebotes)),
-      ast: Math.max(...weeklyData.map(d => d.Asistencias)),
-      stl: Math.max(...weeklyData.map(d => d.Robos)),
-      blk: Math.max(...weeklyData.map(d => d.Bloqueos)),
-      tov: Math.max(...weeklyData.map(d => d.Pérdidas)),
-      tpm: Math.max(...weeklyData.map(d => d.Triples)),
-      fgPct: Math.max(...weeklyData.map(d => d['TC%'])),
-      ftPct: Math.max(...weeklyData.map(d => d['TL%']))
+      pts: safeMax(weeklyData.map(d => d.Puntos)),
+      reb: safeMax(weeklyData.map(d => d.Rebotes)),
+      ast: safeMax(weeklyData.map(d => d.Asistencias)),
+      stl: safeMax(weeklyData.map(d => d.Robos)),
+      blk: safeMax(weeklyData.map(d => d.Bloqueos)),
+      tov: safeMax(weeklyData.map(d => d.Pérdidas)),
+      tpm: safeMax(weeklyData.map(d => d.Triples)),
+      fgPct: safeMax(weeklyData.map(d => d['TC%'])),
+      ftPct: safeMax(weeklyData.map(d => d['TL%']))
     };
   }, [weeklyData]);
 
@@ -662,3 +673,4 @@ export default function TeamWeeklyChart({ roster, teamName, categoryPrefs }: Tea
     </div>
   );
 }
+

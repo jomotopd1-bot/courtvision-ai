@@ -13,6 +13,7 @@ interface SettingsModalProps {
   apiUrl: string;
   setApiUrl: (url: string) => void;
   onTestConnection?: () => Promise<void>;
+  onResetApiUrl?: () => void;
 }
 
 export default function SettingsModal({
@@ -24,7 +25,8 @@ export default function SettingsModal({
   onDeleteLeague,
   apiUrl,
   setApiUrl,
-  onTestConnection
+  onTestConnection,
+  onResetApiUrl
 }: SettingsModalProps) {
   const [testStatus, setTestStatus] = React.useState<'idle' | 'testing' | 'success' | 'error'>('idle');
 
@@ -133,6 +135,14 @@ export default function SettingsModal({
                    testStatus === 'error' ? 'Fallo de Conexión' :
                    'Probar Conexión con Servidor'}
                 </button>
+                {onResetApiUrl && (
+                  <button
+                    onClick={onResetApiUrl}
+                    className="w-full mt-2 py-2 text-[10px] font-bold text-neutral-500 hover:text-neutral-300 transition"
+                  >
+                    {language === 'es' ? 'Restablecer URL por defecto' : 'Reset to Default URL'}
+                  </button>
+                )}
               </div>
             </div>
 

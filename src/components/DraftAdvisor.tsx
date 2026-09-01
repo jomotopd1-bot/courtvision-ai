@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Sparkles, Brain, Compass, HelpCircle, TrendingUp, UserPlus, Info, CheckCircle2, Search, ArrowRight } from 'lucide-react';
-import { DraftRecommendation } from '../types.js';
+import { DraftRecommendation } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
-import { TOP_PLAYERS } from '../data/topPlayers.js';
+import { TOP_PLAYERS } from '../data/topPlayers';
 
 export default function DraftAdvisor({ getFullUrl = (p: string) => p }: { getFullUrl?: (p: string) => string }) {
   const [strategy, setStrategy] = useState<'Equilibrada' | 'Punt PTS' | 'Punt AST'>('Equilibrada');
@@ -57,7 +57,8 @@ export default function DraftAdvisor({ getFullUrl = (p: string) => p }: { getFul
         body: JSON.stringify({ strategy: selectedStrat, draftedPlayers }),
       });
       if (!response.ok) {
-        throw new Error('No se pudieron obtener las recomendaciones de draft.');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'No se pudieron obtener las recomendaciones de draft.');
       }
       const data = await response.json();
       setRecommendation(data);
@@ -634,3 +635,4 @@ export default function DraftAdvisor({ getFullUrl = (p: string) => p }: { getFul
     </div>
   );
 }
+

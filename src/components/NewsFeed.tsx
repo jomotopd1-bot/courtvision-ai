@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Bell, AlertTriangle, Info, ShieldAlert, Sparkles, Plus, Check, Play, Activity } from 'lucide-react';
-import { NewsAlert, FantasyTeam } from '../types.js';
+import { NewsAlert, FantasyTeam } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
-import InjuryTracker from './InjuryTracker.js';
+import InjuryTracker from './InjuryTracker';
 
 interface NewsFeedProps {
   alerts: NewsAlert[];
@@ -280,3 +280,4 @@ export default function NewsFeed({ alerts, onRefresh, onMarkRead, onSimulate, te
     </div>
   );
 }
+

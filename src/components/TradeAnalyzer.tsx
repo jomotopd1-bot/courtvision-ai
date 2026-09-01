@@ -1,8 +1,8 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Sparkles, RefreshCw, CheckCircle, TrendingUp, AlertCircle, HelpCircle, ArrowLeftRight, Users, ChevronRight, Activity, MessageSquare } from 'lucide-react';
-import { FantasyTeam, TradeSuggestion, Player } from '../types.js';
+import { FantasyTeam, TradeSuggestion, Player } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
-import ManualTradeAnalyzer from './ManualTradeAnalyzer.js';
+import ManualTradeAnalyzer from './ManualTradeAnalyzer';
 import {
   ResponsiveContainer,
   LineChart,
@@ -300,7 +300,8 @@ export default function TradeAnalyzer({ teams, categoryPrefs, myTeamId, language
         body: JSON.stringify({ teams, myTeamId })
       });
       if (!response.ok) {
-        throw new Error('Error al generar sugerencias de intercambio.');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Error al generar sugerencias de intercambio.');
       }
       const data = await response.json();
       setSuggestions(data);
@@ -706,3 +707,4 @@ export default function TradeAnalyzer({ teams, categoryPrefs, myTeamId, language
     </div>
   );
 }
+

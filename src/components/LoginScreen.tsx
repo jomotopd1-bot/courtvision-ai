@@ -1,5 +1,5 @@
 import React from 'react';
-import { signInWithGoogle } from '../lib/firebase.js';
+import { signInWithGoogle } from '../lib/firebase';
 import { Activity, ShieldCheck, Zap } from 'lucide-react';
 import { motion } from 'motion/react';
 
@@ -105,3 +105,4 @@ export default function LoginScreen({ onGuestLogin }: { onGuestLogin?: () => voi
     </div>
   );
 }
+

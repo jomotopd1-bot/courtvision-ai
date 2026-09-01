@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Sparkles, Brain, ShieldAlert, Target, Users, TrendingUp, AlertTriangle, ArrowRight, Activity, Zap, ClipboardList } from 'lucide-react';
-import { FantasyTeam, OpponentForecast as ForecastType } from '../types.js';
+import { FantasyTeam, OpponentForecast as ForecastType } from '../types';
 import { motion } from 'motion/react';
 
 interface OpponentForecastProps {
@@ -62,7 +62,8 @@ export default function OpponentForecast({ userTeam, opponentTeam, categoryPrefs
         })
       });
       if (!response.ok) {
-        throw new Error('No se pudo generar el pronóstico estratégico contra el oponente.');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'No se pudo generar el pronóstico estratégico contra el oponente.');
       }
       const data = await response.json();
       setForecast(data);
@@ -570,3 +571,4 @@ export default function OpponentForecast({ userTeam, opponentTeam, categoryPrefs
     </div>
   );
 }
+
