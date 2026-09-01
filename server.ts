@@ -65,10 +65,28 @@ function extractJSON(text: string) {
   }
 }
 
+// Compactador de datos para la IA
+function compactTeams(teams: any[]) {
+  return teams.map(t => ({
+    n: t.name,
+    r: t.roster.map((p: any) => ({
+      n: p.name,
+      p: p.positions.join(','),
+      s: p.stats
+    }))
+  }));
+}
+
 // Helper ultra-robusto para Gemini usando REST directo
-async function askAI(prompt: string) {
+async function askAI(prompt: string, dataToCompact?: any[]) {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error('API Key no configurada en Render.');
+
+  let finalPrompt = prompt;
+  if (dataToCompact) {
+    const compactData = compactTeams(dataToCompact);
+    finalPrompt += ` DATOS: ${JSON.stringify(compactData)}`;
+  }
 
   const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
 
@@ -77,10 +95,10 @@ async function askAI(prompt: string) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
+        contents: [{ parts: [{ text: finalPrompt }] }],
         generationConfig: {
           responseMimeType: 'application/json',
-          temperature: 0.1 // Menor temperatura para JSON más preciso
+          temperature: 0.1
         }
       })
     });
@@ -88,10 +106,7 @@ async function askAI(prompt: string) {
     if (!response.ok) {
       const errorText = await response.text();
       console.error('[GEMINI REST ERROR]', errorText);
-      if (errorText.includes('not supported')) {
-         return await askAIFallback(prompt, apiKey);
-      }
-      throw new Error(`Error de Google (${response.status})`);
+      return await askAIFallback(finalPrompt, apiKey, errorText);
     }
 
     const data: any = await response.json();
@@ -102,27 +117,31 @@ async function askAI(prompt: string) {
     return extractJSON(text);
   } catch (err: any) {
     console.error('[AI FINAL ERROR]', err.message);
-    throw new Error(`Error de IA: ${err.message}`);
+    throw new Error(err.message.includes('Fallback') ? err.message : `Error de IA: ${err.message}`);
   }
 }
 
-async function askAIFallback(prompt: string, apiKey: string) {
-  const url = `https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=${apiKey}`;
+async function askAIFallback(prompt: string, apiKey: string, originalError: string) {
+  console.log('[AI] Entrando en modo Fallback por error:', originalError);
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${apiKey}`;
+
   const response = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }]
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: { responseMimeType: 'application/json' }
     })
   });
 
-  if (!response.ok) throw new Error('Fallback también falló.');
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(`Fallback también falló. Original: ${originalError}. Fallback: ${errText}`);
+  }
 
   const data: any = await response.json();
   const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!text) throw new Error('Fallback vacío.');
-
-  return extractJSON(text);
+  return extractJSON(text || '{}');
 }
 
 // --- HELPERS Y MAPEOS ---
