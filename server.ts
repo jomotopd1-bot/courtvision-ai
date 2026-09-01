@@ -23,24 +23,50 @@ app.use((req, res, next) => {
 // --- AI ENGINE (DIRECT REST) ---
 
 function extractJSON(text: string) {
+  // Limpieza previa: eliminar posibles caracteres de control o basura al inicio/final
+  const cleanedText = text.trim();
+
   try {
-    // Attempt standard parse first
-    return JSON.parse(text);
+    return JSON.parse(cleanedText);
   } catch (e) {
-    // Look for JSON blocks in markdown (```json ... ```) or anywhere in text
-    const jsonRegex = /(\{|\[)[\s\S]*(\}|\])/;
-    const match = text.match(jsonRegex);
-    if (match) {
+    // Buscar bloques de código markdown ```json ... ```
+    const mdMatch = cleanedText.match(/```json\s*([\s\S]*?)\s*```/);
+    if (mdMatch && mdMatch[1]) {
+      try { return JSON.parse(mdMatch[1].trim()); } catch (inner) {}
+    }
+
+    // Búsqueda agresiva por llaves o corchetes
+    const firstBrace = cleanedText.indexOf('{');
+    const lastBrace = cleanedText.lastIndexOf('}');
+    const firstBracket = cleanedText.indexOf('[');
+    const lastBracket = cleanedText.lastIndexOf(']');
+
+    let start = -1;
+    let end = -1;
+
+    // Determinar si parece más un objeto o un array
+    if (firstBrace !== -1 && (firstBracket === -1 || firstBrace < firstBracket)) {
+      start = firstBrace;
+      end = lastBrace;
+    } else if (firstBracket !== -1) {
+      start = firstBracket;
+      end = lastBracket;
+    }
+
+    if (start !== -1 && end !== -1 && end > start) {
+      const potentialJson = cleanedText.substring(start, end + 1);
       try {
-        return JSON.parse(match[0]);
+        return JSON.parse(potentialJson);
       } catch (innerE) {
-        // Fallback to more aggressive cleanup if needed
-        let cleaned = match[0].replace(/\\n/g, '').replace(/\\"/g, '"');
-        try { return JSON.parse(cleaned); } catch (f) {}
+        // Fallback: eliminar saltos de línea literales que a veces rompen el parseo
+        try {
+          return JSON.parse(potentialJson.replace(/\n/g, ' ').replace(/\r/g, ''));
+        } catch (f) {}
       }
     }
-    console.error("Failed to extract JSON from AI response:", text);
-    throw new Error("La respuesta de la IA no contiene un formato JSON válido.");
+
+    console.error("No se pudo extraer JSON de:", text);
+    throw new Error("Respuesta malformada");
   }
 }
 
@@ -124,22 +150,34 @@ async function askAI(prompt: string, rawData?: any) {
       console.log(`[AI] Intentando con ${modelName}...`);
       const model = genAI.getGenerativeModel({
         model: modelName,
-        generationConfig: { temperature: 0.1, topP: 0.95, maxOutputTokens: 2048 }
+        generationConfig: {
+          temperature: 0.1,
+          topP: 0.95,
+          maxOutputTokens: 2048,
+          responseMimeType: "application/json"
+        }
       });
 
       const result = await model.generateContent(fullPrompt);
       const response = await result.response;
       const text = response.text();
 
-      if (text) return extractJSON(text);
+      if (text) {
+        try {
+          return extractJSON(text);
+        } catch (jsonErr) {
+          console.error(`[AI] Error parseando JSON de ${modelName}:`, text);
+          throw jsonErr;
+        }
+      }
     } catch (error: any) {
       const msg = error.message || "Error";
       console.error(`[AI] Falló ${modelName}:`, msg);
       allErrors.push(`${modelName}: ${msg.substring(0, 100)}`);
 
-      if (msg.includes("503") || msg.includes("demand")) {
-        console.log("[AI] Modelo saturado, esperando 1.5s antes del siguiente...");
-        await new Promise(resolve => setTimeout(resolve, 1500));
+      if (msg.includes("503") || msg.includes("demand") || msg.includes("overloaded")) {
+        console.log("[AI] Modelo saturado, esperando 2s...");
+        await new Promise(resolve => setTimeout(resolve, 2000));
       }
     }
   }
