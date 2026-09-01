@@ -38,12 +38,38 @@ function getAI() {
   return genAI;
 }
 
+// Extractor de JSON robusto
+function extractJSON(text: string) {
+  try {
+    // Intentar parseo directo primero
+    return JSON.parse(text);
+  } catch (e) {
+    // Buscar el primer '{' o '[' y el último '}' o ']'
+    const startBrace = text.indexOf('{');
+    const startBracket = text.indexOf('[');
+    let start = -1;
+    if (startBrace !== -1 && (startBracket === -1 || startBrace < startBracket)) start = startBrace;
+    else if (startBracket !== -1) start = startBracket;
+
+    const endBrace = text.lastIndexOf('}');
+    const endBracket = text.lastIndexOf(']');
+    let end = -1;
+    if (endBrace !== -1 && (endBracket === -1 || endBrace > endBracket)) end = endBrace;
+    else if (endBracket !== -1) end = endBracket;
+
+    if (start !== -1 && end !== -1 && end > start) {
+      const jsonStr = text.substring(start, end + 1);
+      return JSON.parse(jsonStr);
+    }
+    throw new Error(`No se encontró un bloque JSON válido en la respuesta: ${text.substring(0, 100)}...`);
+  }
+}
+
 // Helper ultra-robusto para Gemini usando REST directo
 async function askAI(prompt: string) {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error('API Key no configurada en Render.');
 
-  // Intentamos con v1beta que es la que soporta Gemini 1.5 Flash actualmente vía REST
   const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
 
   try {
@@ -54,27 +80,26 @@ async function askAI(prompt: string) {
         contents: [{ parts: [{ text: prompt }] }],
         generationConfig: {
           responseMimeType: 'application/json',
-          temperature: 0.7
+          temperature: 0.1 // Menor temperatura para JSON más preciso
         }
       })
     });
 
-    const data: any = await response.json();
-
     if (!response.ok) {
-      console.error('[GEMINI REST ERROR]', JSON.stringify(data));
-      // Si falla por el modelo, intentamos con gemini-pro que es más estable en v1
-      if (data.error?.message?.includes('not supported')) {
+      const errorText = await response.text();
+      console.error('[GEMINI REST ERROR]', errorText);
+      if (errorText.includes('not supported')) {
          return await askAIFallback(prompt, apiKey);
       }
-      throw new Error(data.error?.message || `Error de Google (${response.status})`);
+      throw new Error(`Error de Google (${response.status})`);
     }
 
+    const data: any = await response.json();
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!text) throw new Error('Respuesta de IA vacía.');
 
-    const jsonStr = text.replace(/```json\n?|```/g, '').trim();
-    return JSON.parse(jsonStr);
+    if (!text) throw new Error('La IA no devolvió texto.');
+
+    return extractJSON(text);
   } catch (err: any) {
     console.error('[AI FINAL ERROR]', err.message);
     throw new Error(`Error de IA: ${err.message}`);
@@ -90,10 +115,14 @@ async function askAIFallback(prompt: string, apiKey: string) {
       contents: [{ parts: [{ text: prompt }] }]
     })
   });
+
+  if (!response.ok) throw new Error('Fallback también falló.');
+
   const data: any = await response.json();
   const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-  const jsonStr = (text || "").replace(/```json\n?|```/g, '').trim();
-  return JSON.parse(jsonStr);
+  if (!text) throw new Error('Fallback vacío.');
+
+  return extractJSON(text);
 }
 
 // --- HELPERS Y MAPEOS ---
