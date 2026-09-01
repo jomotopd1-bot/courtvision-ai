@@ -101,29 +101,26 @@ async function askAI(prompt: string, rawData?: any) {
     throw new Error('Servicio de IA no configurado. Verifica la API Key.');
   }
 
-  // Debug log (safe)
-  console.log(`[AI] Usando API Key que termina en ...${apiKey.substring(apiKey.length - 4)}`);
-
   let fullPrompt = prompt;
   if (rawData) {
     const data = compactData(rawData);
     fullPrompt += `\n\nCONTEXTO DE DATOS (JSON): ${JSON.stringify(data)}`;
   }
 
-  fullPrompt += "\n\nIMPORTANTE: Responde ÚNICAMENTE con el objeto JSON solicitado, sin explicaciones, sin markdown (sin ```json) y sin texto adicional. Asegúrate de que sea un JSON válido.";
+  fullPrompt += "\n\nIMPORTANTE: Responde ÚNICAMENTE con el objeto JSON solicitado, sin explicaciones ni markdown. Asegúrate de que sea un JSON válido.";
 
   const genAI = new GoogleGenerativeAI(apiKey);
 
-  // Modelos actualizados a las versiones más recientes sugeridas por Google
+  // Lista de modelos recomendada por el error de Google y la lista disponible del usuario
   const modelNames = [
-    "gemini-3.7-flash",
     "gemini-3.6-flash",
-    "gemini-3.5-flash",
+    "gemini-3.7-flash",
     "gemini-flash-latest",
-    "gemini-2.5-flash"
+    "gemini-2.5-flash",
+    "gemini-pro"
   ];
 
-  let lastError = '';
+  let allErrors = [];
 
   for (const modelName of modelNames) {
     try {
@@ -131,7 +128,7 @@ async function askAI(prompt: string, rawData?: any) {
       const model = genAI.getGenerativeModel({
         model: modelName,
         generationConfig: {
-          temperature: 0.1, // Menor temperatura para mayor consistencia en JSON
+          temperature: 0.1,
           topP: 0.95,
           topK: 40,
           maxOutputTokens: 2048,
@@ -143,24 +140,21 @@ async function askAI(prompt: string, rawData?: any) {
       const text = response.text();
 
       if (text) {
-        try {
-          return extractJSON(text);
-        } catch (jsonErr) {
-          console.warn(`[AI] Respuesta de ${modelName} no es JSON puro, intentando extraer...`);
-          return extractJSON(text); // extractJSON already has regex fallback
-        }
+        console.log(`[AI] Éxito con ${modelName}`);
+        return extractJSON(text);
       }
     } catch (error: any) {
-      lastError = error.message;
-      console.error(`[AI] Error con ${modelName}:`, lastError);
+      const msg = error.message || "Error desconocido";
+      console.error(`[AI] Falló ${modelName}:`, msg);
+      allErrors.push(`${modelName}: ${msg}`);
 
-      if (lastError.includes("API key not valid")) {
+      if (msg.includes("API key not valid")) {
         throw new Error("La API Key de Gemini no es válida.");
       }
     }
   }
 
-  throw new Error(`La IA no pudo procesar la solicitud tras varios intentos. Último error: ${lastError}`);
+  throw new Error(`La IA falló tras varios intentos. Errores: ${allErrors.join(" | ")}`);
 }
 
 // --- NBA MAPPINGS ---
