@@ -36,7 +36,8 @@ export default function LineupOptimizer({ roster, teamName, getFullUrl = (p) => 
         body: JSON.stringify({ roster })
       });
       if (!response.ok) {
-        throw new Error('No se pudo completar el análisis de optimización.');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'No se pudo completar el análisis de optimización.');
       }
       const data = await response.json();
       setResult(data);

@@ -38,49 +38,43 @@ function getAI() {
   return genAI;
 }
 
-// Helper robusto para Gemini
+// Helper ultra-robusto para Gemini usando REST directo (evita bugs de versión del SDK)
 async function askAI(prompt: string) {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error('API Key no configurada en Render.');
 
-  const client = getAI();
+  // Intentamos con v1 estable directamente vía REST
+  const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
 
-  // Lista de modelos a intentar en orden de estabilidad
-  const modelsToTry = [
-    { name: 'gemini-1.5-flash', version: 'v1' },
-    { name: 'gemini-1.5-flash-latest', version: 'v1' },
-    { name: 'gemini-pro', version: 'v1' }
-  ];
-
-  let lastError = null;
-
-  for (const modelCfg of modelsToTry) {
-    try {
-      const model = client.getGenerativeModel({
-        model: modelCfg.name
-      }, { apiVersion: modelCfg.version as any });
-
-      const result = await model.generateContent({
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
         generationConfig: {
           responseMimeType: 'application/json',
           temperature: 0.7
         }
-      });
+      })
+    });
 
-      const response = await result.response;
-      const text = response.text();
-      if (!text) continue;
+    const data: any = await response.json();
 
-      const jsonStr = text.replace(/```json\n?|```/g, '').trim();
-      return JSON.parse(jsonStr);
-    } catch (err: any) {
-      console.error(`[AI TRY FAILED] ${modelCfg.name}:`, err.message);
-      lastError = err;
+    if (!response.ok) {
+      console.error('[GEMINI REST ERROR]', JSON.stringify(data));
+      throw new Error(data.error?.message || `Error del servidor de Google (${response.status})`);
     }
-  }
 
-  throw new Error(`Fallo total de IA tras varios intentos. Último error: ${lastError?.message || 'Desconocido'}`);
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!text) throw new Error('Gemini devolvió una respuesta vacía o sin candidatos.');
+
+    const jsonStr = text.replace(/```json\n?|```/g, '').trim();
+    return JSON.parse(jsonStr);
+  } catch (err: any) {
+    console.error('[AI FINAL FALLBACK ERROR]', err.message);
+    throw new Error(`La IA no pudo procesar tu solicitud: ${err.message}`);
+  }
 }
 
 // --- HELPERS Y MAPEOS ---

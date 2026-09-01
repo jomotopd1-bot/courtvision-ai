@@ -33,7 +33,8 @@ export default function WaiverWire({ roster, categoryPrefs, getFullUrl = (p) => 
       });
 
       if (!response.ok) {
-        throw new Error('No se pudo generar el análisis del Waiver Wire');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'No se pudo generar el análisis del Waiver Wire');
       }
 
       const data = await response.json() as WaiverRecommendation;
