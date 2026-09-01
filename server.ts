@@ -1,3 +1,4 @@
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import express from 'express';
 import path from 'path';
 import cors from 'cors';
@@ -23,67 +24,143 @@ app.use((req, res, next) => {
 
 function extractJSON(text: string) {
   try {
+    // Attempt standard parse first
     return JSON.parse(text);
   } catch (e) {
-    const start = Math.max(text.indexOf('{'), text.indexOf('['));
-    const end = Math.max(text.lastIndexOf('}'), text.lastIndexOf(']'));
-    if (start !== -1 && end !== -1 && end > start) {
-      return JSON.parse(text.substring(start, end + 1));
+    // Look for JSON blocks in markdown (```json ... ```) or anywhere in text
+    const jsonRegex = /(\{|\[)[\s\S]*(\}|\])/;
+    const match = text.match(jsonRegex);
+    if (match) {
+      try {
+        return JSON.parse(match[0]);
+      } catch (innerE) {
+        // Fallback to more aggressive cleanup if needed
+        let cleaned = match[0].replace(/\\n/g, '').replace(/\\"/g, '"');
+        try { return JSON.parse(cleaned); } catch (f) {}
+      }
     }
-    throw new Error("No se pudo extraer JSON de la respuesta de IA.");
+    console.error("Failed to extract JSON from AI response:", text);
+    throw new Error("La respuesta de la IA no contiene un formato JSON válido.");
   }
 }
 
-function compactTeams(teams: any[]) {
-  return (teams || []).slice(0, 12).map(t => ({
-    name: t.name,
-    roster: (t.roster || []).slice(0, 10).map((p: any) => ({
+function compactData(input: any) {
+  if (!input) return null;
+
+  const processPlayer = (p: any) => {
+    const s = p.stats || {};
+    // Calculate percentages for AI context if raw data provided
+    const fgPct = s.fga > 0 ? (s.fgm / s.fga).toFixed(3) : "0.000";
+    const ftPct = s.fta > 0 ? (s.ftm / s.fta).toFixed(3) : "0.000";
+
+    return {
       n: p.name,
-      s: { pts: p.stats.pts, reb: p.stats.reb, ast: p.stats.ast }
-    }))
-  }));
+      pos: p.positions,
+      s: {
+        pts: s.pts, reb: s.reb, ast: s.ast,
+        stl: s.stl, blk: s.blk, tpm: s.tpm,
+        tov: s.tov, fgp: fgPct, ftp: ftPct
+      }
+    };
+  };
+
+  // If input is an array of teams
+  if (Array.isArray(input) && input[0]?.roster) {
+    return input.slice(0, 10).map(t => ({
+      name: t.name,
+      roster: (t.roster || []).slice(0, 13).map(processPlayer)
+    }));
+  }
+
+  // If input is a single roster (array of players)
+  if (Array.isArray(input)) {
+    return input.slice(0, 15).map(processPlayer);
+  }
+
+  // Handle object with nested rosters (e.g. for opponent comparison)
+  if (typeof input === 'object' && input !== null) {
+    const output: any = {};
+    for (const key in input) {
+      if (Array.isArray(input[key])) {
+        output[key] = input[key].slice(0, 15).map(processPlayer);
+      } else {
+        output[key] = input[key];
+      }
+    }
+    return output;
+  }
+
+  return input;
 }
 
-// Helper ultra-robusto para Gemini usando REST directo
+// Helper ultra-robusto para Gemini usando el SDK oficial
 async function askAI(prompt: string, rawData?: any) {
   const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) throw new Error('API Key no configurada en Render.');
+  if (!apiKey) {
+    console.warn("GEMINI_API_KEY is missing in environment variables.");
+    throw new Error('Servicio de IA no configurado. Verifica la API Key.');
+  }
+
+  // Debug log (safe)
+  console.log(`[AI] Usando API Key que termina en ...${apiKey.substring(apiKey.length - 4)}`);
 
   let fullPrompt = prompt;
   if (rawData) {
-    const data = Array.isArray(rawData) ? compactTeams(rawData) : rawData;
-    fullPrompt += `\nDATOS: ${JSON.stringify(data)}`;
+    const data = compactData(rawData);
+    fullPrompt += `\n\nCONTEXTO DE DATOS (JSON): ${JSON.stringify(data)}`;
   }
 
-  // Intentos: 1. gemini-pro (v1), 2. gemini-1.5-flash (v1beta)
-  const attempts = [
-    { url: `https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=${apiKey}`, name: 'gemini-pro' },
-    { url: `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, name: 'gemini-1.5-flash' }
+  fullPrompt += "\n\nIMPORTANTE: Responde ÚNICAMENTE con el objeto JSON solicitado, sin explicaciones, sin markdown (sin ```json) y sin texto adicional. Asegúrate de que sea un JSON válido.";
+
+  const genAI = new GoogleGenerativeAI(apiKey);
+
+  // Modelos actualizados a las versiones más recientes sugeridas por Google
+  const modelNames = [
+    "gemini-3.7-flash",
+    "gemini-3.6-flash",
+    "gemini-3.5-flash",
+    "gemini-flash-latest",
+    "gemini-2.5-flash"
   ];
 
   let lastError = '';
-  for (const attempt of attempts) {
+
+  for (const modelName of modelNames) {
     try {
-      const response = await fetch(attempt.url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: fullPrompt }] }],
-          generationConfig: { temperature: 0.1 }
-        })
+      console.log(`[AI] Intentando con ${modelName}...`);
+      const model = genAI.getGenerativeModel({
+        model: modelName,
+        generationConfig: {
+          temperature: 0.1, // Menor temperatura para mayor consistencia en JSON
+          topP: 0.95,
+          topK: 40,
+          maxOutputTokens: 2048,
+        }
       });
-      const data: any = await response.json();
-      if (response.ok) {
-        const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (text) return extractJSON(text);
-      } else {
-        lastError = data.error?.message || `Status ${response.status}`;
+
+      const result = await model.generateContent(fullPrompt);
+      const response = await result.response;
+      const text = response.text();
+
+      if (text) {
+        try {
+          return extractJSON(text);
+        } catch (jsonErr) {
+          console.warn(`[AI] Respuesta de ${modelName} no es JSON puro, intentando extraer...`);
+          return extractJSON(text); // extractJSON already has regex fallback
+        }
       }
-    } catch (e: any) {
-      lastError = e.message;
+    } catch (error: any) {
+      lastError = error.message;
+      console.error(`[AI] Error con ${modelName}:`, lastError);
+
+      if (lastError.includes("API key not valid")) {
+        throw new Error("La API Key de Gemini no es válida.");
+      }
     }
   }
-  throw new Error(`La IA no pudo procesar tu solicitud: ${lastError}`);
+
+  throw new Error(`La IA no pudo procesar la solicitud tras varios intentos. Último error: ${lastError}`);
 }
 
 // --- NBA MAPPINGS ---
@@ -136,7 +213,19 @@ app.post('/api/espn/sync', async (req, res) => {
           name: p.fullName || 'Jugador',
           nbaTeam: NBA_TEAMS[p.proTeamId] || 'NBA',
           positions: (p.eligibleSlots || []).filter((s: number) => POSITIONS[s]).map((s: number) => POSITIONS[s]),
-          stats: { pts: stats['0'] || 0, ast: stats['3'] || 0, reb: stats['6'] || 0, stl: stats['2'] || 0, blk: stats['1'] || 0, tpm: stats['17'] || 0, tov: stats['11'] || 0 }
+          stats: {
+            pts: stats['0'] || 0,
+            ast: stats['3'] || 0,
+            reb: stats['6'] || 0,
+            stl: stats['2'] || 0,
+            blk: stats['1'] || 0,
+            tpm: stats['17'] || 0,
+            tov: stats['11'] || 0,
+            fgm: stats['19'] || 0,
+            fga: stats['20'] || 0,
+            ftm: stats['21'] || 0,
+            fta: stats['22'] || 0
+          }
         };
       })
     }));
@@ -154,6 +243,27 @@ app.post('/api/analyze/trades', async (req, res) => {
     const { teams } = req.body;
     const prompt = `Analiza estos equipos de NBA Fantasy y sugiere 3 traspasos win-win. Responde SOLO un array JSON de objetos: [{"proposerTeamName":"...","receiverTeamName":"...","proposerSends":["..."],"receiverSends":["..."],"mlAnalysis":{"summary":"...","verdict":"EXCELLENT","scoreChangeProposer":1.1,"scoreChangeReceiver":1.1}}]`;
     const result = await askAI(prompt, teams);
+    res.json(result);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/analyze/trade/manual', async (req, res) => {
+  try {
+    const { proposerSends, receiverSends, proposerTeamName, receiverTeamName } = req.body;
+    const prompt = `Analiza este intercambio entre ${proposerTeamName} y ${receiverTeamName}.
+    Responde un objeto JSON con el análisis: {
+      "mlAnalysis": {
+        "summary": "...",
+        "proposerBenefit": "...",
+        "receiverBenefit": "...",
+        "verdict": "EXCELLENT/FAVORABLE/RISKY/UNEVEN",
+        "scoreChangeProposer": 0.0,
+        "scoreChangeReceiver": 0.0
+      }
+    }`;
+    const result = await askAI(prompt, { proposerSends, receiverSends });
     res.json(result);
   } catch (e: any) {
     res.status(500).json({ error: e.message });
