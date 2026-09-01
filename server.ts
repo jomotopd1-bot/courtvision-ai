@@ -108,13 +108,13 @@ async function askAI(prompt: string, rawData?: any) {
 
   const genAI = new GoogleGenerativeAI(apiKey);
 
-  // Lista híbrida: Los más nuevos y los más estables (1.5)
+  // Lista priorizando Gemini 3.1 Pro según solicitud del usuario
   const modelNames = [
-    "gemini-1.5-flash",
-    "gemini-3.6-flash",
+    "gemini-3.1-pro-preview",
     "gemini-1.5-pro",
-    "gemini-3.7-flash",
-    "gemini-flash-latest"
+    "gemini-3.1-flash-lite",
+    "gemini-1.5-flash",
+    "gemini-3.6-flash"
   ];
 
   let allErrors = [];

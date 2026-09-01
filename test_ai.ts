@@ -9,7 +9,7 @@ async function test() {
   if (!key) return;
   try {
     const genAI = new GoogleGenerativeAI(key);
-    const model = genAI.getGenerativeModel({ model: "gemini-3.6-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-3.1-pro-preview" });
     console.log('SDK initialized');
 
     const result = await model.generateContent("Hola, responde con un objeto JSON: { \"status\": \"ok\" }");
