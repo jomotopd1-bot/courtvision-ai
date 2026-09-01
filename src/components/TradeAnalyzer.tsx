@@ -76,19 +76,20 @@ export default function TradeAnalyzer({ teams, categoryPrefs, myTeamId, language
 
   const formatPlayerStats = (player: Player) => {
     const statsList: string[] = [];
-    if (!categoryPrefs || categoryPrefs.pts) statsList.push(`${player.stats.pts} PTS`);
-    if (!categoryPrefs || categoryPrefs.reb) statsList.push(`${player.stats.reb} REB`);
-    if (!categoryPrefs || categoryPrefs.ast) statsList.push(`${player.stats.ast} AST`);
-    if (!categoryPrefs || categoryPrefs.stl) statsList.push(`${player.stats.stl} STL`);
-    if (!categoryPrefs || categoryPrefs.blk) statsList.push(`${player.stats.blk} BLK`);
-    if (!categoryPrefs || categoryPrefs.tpm) statsList.push(`${player.stats.tpm} 3PM`);
-    if (!categoryPrefs || categoryPrefs.tov) statsList.push(`${player.stats.tov} TOV`);
+    const s = player.stats || {};
+    if (!categoryPrefs || categoryPrefs.pts) statsList.push(`${s.pts || 0} PTS`);
+    if (!categoryPrefs || categoryPrefs.reb) statsList.push(`${s.reb || 0} REB`);
+    if (!categoryPrefs || categoryPrefs.ast) statsList.push(`${s.ast || 0} AST`);
+    if (!categoryPrefs || categoryPrefs.stl) statsList.push(`${s.stl || 0} STL`);
+    if (!categoryPrefs || categoryPrefs.blk) statsList.push(`${s.blk || 0} BLK`);
+    if (!categoryPrefs || categoryPrefs.tpm) statsList.push(`${s.tpm || 0} 3PM`);
+    if (!categoryPrefs || categoryPrefs.tov) statsList.push(`${s.tov || 0} TOV`);
     if (!categoryPrefs || categoryPrefs.fgPct) {
-      const pct = player.stats.fga > 0 ? ((player.stats.fgm / player.stats.fga) * 100).toFixed(1) : '0';
+      const pct = (s.fga || 0) > 0 ? (((s.fgm || 0) / s.fga) * 100).toFixed(1) : '0';
       statsList.push(`${pct}% FG`);
     }
     if (!categoryPrefs || categoryPrefs.ftPct) {
-      const pct = player.stats.fta > 0 ? ((player.stats.ftm / player.stats.fta) * 100).toFixed(1) : '0';
+      const pct = (s.fta || 0) > 0 ? (((s.ftm || 0) / s.fta) * 100).toFixed(1) : '0';
       statsList.push(`${pct}% FT`);
     }
     return statsList.slice(0, 4).join(' / '); // keep to max 4 stats for clean visual layout
@@ -266,15 +267,15 @@ export default function TradeAnalyzer({ teams, categoryPrefs, myTeamId, language
       let avg2 = 0;
 
       if (comparisonMetric === 'fgPct') {
-        avg1 = selectedTeam1.roster.reduce((sum, p) => sum + ((p.stats?.fgm / (p.stats?.fga || 1)) * 100 || 0), 0) / size1;
-        avg2 = selectedTeam2.roster.reduce((sum, p) => sum + ((p.stats?.fgm / (p.stats?.fga || 1)) * 100 || 0), 0) / size2;
+        avg1 = selectedTeam1.roster.reduce((sum, p) => sum + (((p.stats?.fgm || 0) / (p.stats?.fga || 1)) * 100 || 0), 0) / size1;
+        avg2 = selectedTeam2.roster.reduce((sum, p) => sum + (((p.stats?.fgm || 0) / (p.stats?.fga || 1)) * 100 || 0), 0) / size2;
       } else if (comparisonMetric === 'ftPct') {
-        avg1 = selectedTeam1.roster.reduce((sum, p) => sum + ((p.stats?.ftm / (p.stats?.fta || 1)) * 100 || 0), 0) / size1;
-        avg2 = selectedTeam2.roster.reduce((sum, p) => sum + ((p.stats?.ftm / (p.stats?.fta || 1)) * 100 || 0), 0) / size2;
+        avg1 = selectedTeam1.roster.reduce((sum, p) => sum + (((p.stats?.ftm || 0) / (p.stats?.fta || 1)) * 100 || 0), 0) / size1;
+        avg2 = selectedTeam2.roster.reduce((sum, p) => sum + (((p.stats?.ftm || 0) / (p.stats?.fta || 1)) * 100 || 0), 0) / size2;
       } else {
         const key = comparisonMetric === 'tpm' ? 'tpm' : comparisonMetric;
-        avg1 = selectedTeam1.roster.reduce((sum, p) => sum + ((p.stats as any)[key] || 0), 0) / size1;
-        avg2 = selectedTeam2.roster.reduce((sum, p) => sum + ((p.stats as any)[key] || 0), 0) / size2;
+        avg1 = selectedTeam1.roster.reduce((sum, p) => sum + ((p.stats as any)?.[key] || 0), 0) / size1;
+        avg2 = selectedTeam2.roster.reduce((sum, p) => sum + ((p.stats as any)?.[key] || 0), 0) / size2;
       }
       const diff = Math.abs(avg1 - avg2);
       const isPercent = comparisonMetric === 'fgPct' || comparisonMetric === 'ftPct';
@@ -304,7 +305,19 @@ export default function TradeAnalyzer({ teams, categoryPrefs, myTeamId, language
         throw new Error(errorData.error || 'Error al generar sugerencias de intercambio.');
       }
       const data = await response.json();
-      setSuggestions(data);
+      if (Array.isArray(data)) {
+        setSuggestions(data);
+      } else if (data && typeof data === 'object' && !data.error) {
+        // AI might have wrapped the array in an object
+        const possibleArray = Object.values(data).find(val => Array.isArray(val));
+        if (possibleArray) {
+          setSuggestions(possibleArray as TradeSuggestion[]);
+        } else {
+          setSuggestions([]);
+        }
+      } else {
+        setSuggestions([]);
+      }
     } catch (err: any) {
       setError(err.message || 'Error de red.');
     } finally {
@@ -474,7 +487,7 @@ export default function TradeAnalyzer({ teams, categoryPrefs, myTeamId, language
                     {getVerdictBadge(trade.mlAnalysis.verdict)}
                     <span className="px-2.5 py-1 bg-emerald-500/10 text-emerald-400 text-xs font-semibold rounded-full border border-emerald-500/20 flex items-center gap-1">
                       <TrendingUp className="w-3.5 h-3.5" />
-                      Mejora: {trade.mlAnalysis.scoreChangeProposer > 0 ? `+${trade.mlAnalysis.scoreChangeProposer}` : trade.mlAnalysis.scoreChangeProposer}%
+                      Mejora: {(trade.mlAnalysis?.scoreChangeProposer || 0) > 0 ? `+${trade.mlAnalysis?.scoreChangeProposer}` : (trade.mlAnalysis?.scoreChangeProposer || 0)}%
                     </span>
                   </div>
                 </div>
@@ -485,17 +498,17 @@ export default function TradeAnalyzer({ teams, categoryPrefs, myTeamId, language
                   <div className="p-4 bg-neutral-900 border border-neutral-800 rounded-xl flex flex-col justify-between">
                     <div>
                       <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-2">
-                        {trade.proposerTeamName} envía:
+                        {(trade.proposerTeamName || 'Equipo A')} envía:
                       </p>
                       <div className="space-y-3">
-                        {trade.proposerSends.map((player) => (
+                        {(trade.proposerSends || []).map((player) => (
                           <div key={player.id} className="flex justify-between items-center text-xs border-b border-neutral-800 pb-2 last:border-0 last:pb-0">
                             <div>
-                              <p className="font-bold text-neutral-100">{player.name}</p>
+                              <p className="font-bold text-neutral-100">{player.name || 'Jugador'}</p>
                               <div className="flex items-center gap-1 text-[10px] text-neutral-400 font-medium">
-                                <span>{player.nbaTeam}</span>
+                                <span>{player.nbaTeam || 'NBA'}</span>
                                 <span>•</span>
-                                {player.positions.map(p => <span key={p} className="text-orange-400 font-semibold">{p}</span>)}
+                                {(player.positions || []).map(p => <span key={p} className="text-orange-400 font-semibold">{p}</span>)}
                               </div>
                             </div>
                             <div className="text-right text-[10px] text-neutral-400 font-medium font-mono">
@@ -511,17 +524,17 @@ export default function TradeAnalyzer({ teams, categoryPrefs, myTeamId, language
                   <div className="p-4 bg-neutral-900 border border-neutral-800 rounded-xl flex flex-col justify-between">
                     <div>
                       <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-2">
-                        {trade.receiverTeamName} envía:
+                        {(trade.receiverTeamName || 'Equipo B')} envía:
                       </p>
                       <div className="space-y-3">
-                        {trade.receiverSends.map((player) => (
+                        {(trade.receiverSends || []).map((player) => (
                           <div key={player.id} className="flex justify-between items-center text-xs border-b border-neutral-800 pb-2 last:border-0 last:pb-0">
                             <div>
-                              <p className="font-bold text-neutral-100">{player.name}</p>
+                              <p className="font-bold text-neutral-100">{player.name || 'Jugador'}</p>
                               <div className="flex items-center gap-1 text-[10px] text-neutral-400 font-medium">
-                                <span>{player.nbaTeam}</span>
+                                <span>{player.nbaTeam || 'NBA'}</span>
                                 <span>•</span>
-                                {player.positions.map(p => <span key={p} className="text-orange-400 font-semibold">{p}</span>)}
+                                {(player.positions || []).map(p => <span key={p} className="text-orange-400 font-semibold">{p}</span>)}
                               </div>
                             </div>
                             <div className="text-right text-[10px] text-neutral-400 font-medium font-mono">
@@ -541,17 +554,17 @@ export default function TradeAnalyzer({ teams, categoryPrefs, myTeamId, language
                       Análisis Estratégico de Aprendizaje Automático
                     </h5>
                     <p className="text-xs text-neutral-200 mt-1 leading-relaxed">
-                      {trade.mlAnalysis.summary}
+                      {trade.mlAnalysis?.summary || 'No hay resumen disponible.'}
                     </p>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 text-xs">
                     <div className="p-3 bg-neutral-900 rounded-lg border border-neutral-800">
-                      <p className="font-bold text-neutral-100 mb-1">Impacto para {trade.proposerTeamName}:</p>
-                      <p className="text-neutral-400 leading-snug">{trade.mlAnalysis.proposerBenefit}</p>
+                      <p className="font-bold text-neutral-100 mb-1">Impacto para {trade.proposerTeamName || 'Equipo A'}:</p>
+                      <p className="text-neutral-400 leading-snug">{trade.mlAnalysis?.proposerBenefit || 'N/A'}</p>
                     </div>
                     <div className="p-3 bg-neutral-900 rounded-lg border border-neutral-800">
-                      <p className="font-bold text-neutral-100 mb-1">Impacto para {trade.receiverTeamName}:</p>
-                      <p className="text-neutral-400 leading-snug">{trade.mlAnalysis.receiverBenefit}</p>
+                      <p className="font-bold text-neutral-100 mb-1">Impacto para {trade.receiverTeamName || 'Equipo B'}:</p>
+                      <p className="text-neutral-400 leading-snug">{trade.mlAnalysis?.receiverBenefit || 'N/A'}</p>
                     </div>
                   </div>
                 </div>

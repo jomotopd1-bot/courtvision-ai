@@ -264,7 +264,19 @@ app.post('/api/analyze/trades', async (req, res) => {
   try {
     const { teams } = req.body;
     const prompt = `Analiza estos equipos de NBA Fantasy y sugiere 3 traspasos win-win. Responde SOLO un array JSON de objetos: [{"proposerTeamName":"...","receiverTeamName":"...","proposerSends":["..."],"receiverSends":["..."],"mlAnalysis":{"summary":"...","verdict":"EXCELLENT","scoreChangeProposer":1.1,"scoreChangeReceiver":1.1}}]`;
-    const result = await askAI(prompt, teams);
+    let result = await askAI(prompt, teams);
+
+    // Asegurarnos de que el resultado sea un array
+    if (!Array.isArray(result)) {
+      if (result && typeof result === 'object') {
+        const firstArray = Object.values(result).find(v => Array.isArray(v));
+        if (firstArray) result = firstArray;
+        else result = [];
+      } else {
+        result = [];
+      }
+    }
+
     res.json(result);
   } catch (e: any) {
     res.status(500).json({ error: e.message });
