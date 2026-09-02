@@ -213,7 +213,7 @@ app.post('/api/espn/sync', async (req, res) => {
   if (!leagueId || leagueId === 'demo') return res.json({ success: true, isDemo: true, league: MOCK_LEAGUE });
 
   const sId = seasonId || '2027';
-  const url = `https://lm-api-reads.fantasy.espn.com/apis/v3/games/fba/seasons/${sId}/segments/0/leagues/${leagueId}?view=mTeam&view=mRoster&view=mSettings&view=mMatchup&view=mStatus`;
+  const url = `https://lm-api-reads.fantasy.espn.com/apis/v3/games/fba/seasons/${sId}/segments/0/leagues/${leagueId}?view=mTeam&view=mRoster&view=mSettings&view=mMatchup&view=mStatus&view=mPlayers`;
 
   try {
     const headers: any = { 'Accept': 'application/json', 'User-Agent': 'Mozilla/5.0' };
@@ -221,6 +221,27 @@ app.post('/api/espn/sync', async (req, res) => {
     const response = await fetch(url, { headers });
     if (!response.ok) return res.status(response.status).json({ success: false, error: 'Error ESPN' });
     const data = await response.json() as any;
+
+    // Procesar Agentes Libres (jugadores que no tienen equipoId o su status es 'FREEAGENT')
+    const freeAgents = (data.players || [])
+      .filter((pe: any) => pe.status === 'FREEAGENT' || !pe.onTeamId)
+      .slice(0, 50) // Limitamos a los 50 mejores para no saturar el prompt
+      .map((pe: any) => {
+        const p = pe.player || {};
+        const statsArray = p.stats || [];
+        const seasonStats = statsArray.find((s: any) => s.statSourceId === 0 && s.statSplitTypeId === 0)?.averageStats || {};
+        const getS = (id: string) => seasonStats[id] || 0;
+
+        return {
+          id: String(p.id),
+          name: p.fullName,
+          nbaTeam: NBA_TEAMS[p.proTeamId] || "NBA",
+          positions: (p.eligibleSlots || []).filter((s: number) => POSITIONS[s]).map((s: number) => POSITIONS[s]),
+          stats: {
+            pts: getS('0'), ast: getS('3'), reb: getS('6'), stl: getS('2'), blk: getS('1'), tpm: getS('17')
+          }
+        };
+      });
 
     const teams = (data.teams || []).map((rt: any) => ({
       id: String(rt.id),
@@ -230,13 +251,10 @@ app.post('/api/espn/sync', async (req, res) => {
       record: { wins: rt.record?.overall?.wins || 0, losses: rt.record?.overall?.losses || 0, ties: rt.record?.overall?.ties || 0 },
       roster: (rt.roster?.entries || []).map((re: any) => {
         const p = re.playerPoolEntry?.player || {};
-        // Intentar encontrar estadísticas en múltiples lugares (Actual, Proyectado, Promedios)
         const statsArray = p.stats || [];
         const seasonStats = statsArray.find((s: any) => s.statSourceId === 0 && s.statSplitTypeId === 0)?.averageStats || {};
         const last7Stats = statsArray.find((s: any) => s.statSourceId === 0 && s.statSplitTypeId === 1)?.averageStats || {};
         const projectedStats = statsArray.find((s: any) => s.statSourceId === 1 && s.statSplitTypeId === 0)?.averageStats || {};
-
-        // Helper para obtener el valor más fiable de una estadística
         const getS = (id: string) => seasonStats[id] || last7Stats[id] || projectedStats[id] || 0;
 
         return {
@@ -245,23 +263,18 @@ app.post('/api/espn/sync', async (req, res) => {
           nbaTeam: NBA_TEAMS[p.proTeamId] || "NBA",
           positions: (p.eligibleSlots || []).filter((s: number) => POSITIONS[s]).map((s: number) => POSITIONS[s]),
           stats: {
-            pts: getS('0'),
-            ast: getS('3'),
-            reb: getS('6'),
-            stl: getS('2'),
-            blk: getS('1'),
-            tpm: getS('17'),
-            tov: getS('11'),
-            fgm: getS('19'),
-            fga: getS('20'),
-            ftm: getS('21'),
-            fta: getS('22')
+            pts: getS('0'), ast: getS('3'), reb: getS('6'), stl: getS('2'), blk: getS('1'), tpm: getS('17'),
+            tov: getS('11'), fgm: getS('19'), fga: getS('20'), ftm: getS('21'), fta: getS('22')
           }
         };
       })
     }));
 
-    res.json({ success: true, league: { id: String(leagueId), name: data.settings?.name || 'Liga', teams, currentPeriod: data.status?.currentMatchupPeriod || 1 } });
+    res.json({
+      success: true,
+      league: { id: String(leagueId), name: data.settings?.name || 'Liga', teams, currentPeriod: data.status?.currentMatchupPeriod || 1 },
+      freeAgents
+    });
   } catch (err) {
     res.status(500).json({ success: false, error: 'Sync failed' });
   }
@@ -384,9 +397,19 @@ app.post('/api/analyze/trade/manual', async (req, res) => {
 
 app.post('/api/analyze/waiver', async (req, res) => {
   try {
-    const { roster } = req.body;
-    const prompt = `Analiza este roster y recomienda 3 agentes libres. Responde JSON: {"weakestCategories":[{"category":"PTS","average":10,"targetAverage":15,"description":"..."}],"recommendedPlayers":[{"id":"1","name":"...","nbaTeam":"...","positions":["..."],"stats":{"pts":10,"ast":0,"reb":0,"stl":0,"blk":0,"tpm":0},"fitScore":90,"reason":"...","impactDescription":"..."}],"aiVerdict":"..."}`;
-    let result = await askAI(prompt, roster);
+    const { roster, freeAgents } = req.body;
+    const prompt = `Analiza este roster (mi equipo) y estas opciones de Agentes Libres (Waiver Wire).
+    Recomienda 3 fichajes de la lista de agentes libres que cubran las debilidades del roster.
+
+    Responde JSON: {
+      "weakestCategories":[{"category":"PTS","average":10,"targetAverage":15,"description":"..."}],
+      "recommendedPlayers":[{"id":"1","name":"...","nbaTeam":"...","positions":["..."],"stats":{"pts":10,"ast":0,"reb":0,"stl":0,"blk":0,"tpm":0},"fitScore":90,"reason":"...","impactDescription":"..."}],
+      "aiVerdict":"..."
+    }
+
+    IMPORTANTE: Sugiere SOLO jugadores que estén en la lista de AGENTES LIBRES proporcionada.`;
+
+    let result = await askAI(prompt, { mi_equipo: roster, agentes_libres: freeAgents || [] });
 
     // Asegurar estructura
     const finalResult = {

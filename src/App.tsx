@@ -99,6 +99,7 @@ export default function App() {
   }, [language, user]);
 
   const [league, setLeague] = useState<League | null>(null);
+  const [freeAgents, setFreeAgents] = useState<Player[]>([]);
   const [selectedTeamId, setSelectedTeamId] = useState<string>('');
   const [myTeamIds, setMyTeamIds] = useState<Record<string, string>>(() => {
     const saved = localStorage.getItem('courtvision_my_team_ids');
@@ -262,6 +263,7 @@ export default function App() {
 
       if (data.success) {
         setLeague(data.league);
+        if (data.freeAgents) setFreeAgents(data.freeAgents);
         setIsDemo(data.isDemo);
         setSyncSuccess(true);
 
@@ -963,6 +965,7 @@ export default function App() {
                     {myTeam ? (
                       <WaiverWire
                         roster={myTeam.roster}
+                        freeAgents={freeAgents}
                         categoryPrefs={categoryPrefs}
                         getFullUrl={getFullUrl}
                       />

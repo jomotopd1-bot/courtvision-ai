@@ -5,11 +5,12 @@ import { motion, AnimatePresence } from 'motion/react';
 
 interface WaiverWireProps {
   roster: Player[];
+  freeAgents?: Player[];
   categoryPrefs?: Record<string, boolean>;
   getFullUrl?: (path: string) => string;
 }
 
-export default function WaiverWire({ roster, categoryPrefs, getFullUrl = (p) => p }: WaiverWireProps) {
+export default function WaiverWire({ roster, freeAgents = [], categoryPrefs, getFullUrl = (p) => p }: WaiverWireProps) {
   const [recommendation, setRecommendation] = useState<WaiverRecommendation | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -29,7 +30,10 @@ export default function WaiverWire({ roster, categoryPrefs, getFullUrl = (p) => 
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ roster: currentRoster }),
+        body: JSON.stringify({
+          roster: currentRoster,
+          freeAgents: freeAgents
+        }),
       });
 
       if (!response.ok) {
