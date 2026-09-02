@@ -135,13 +135,12 @@ async function askAI(prompt: string, rawData?: any) {
 
   const genAI = new GoogleGenerativeAI(apiKey);
 
-  // Lista priorizando Gemini 3.1 Pro según solicitud del usuario
+  // Lista optimizada: 3.6-flash es el que confirmamos que funciona y es el más rápido
   const modelNames = [
-    "gemini-3.1-pro-preview",
-    "gemini-1.5-pro",
-    "gemini-3.1-flash-lite",
+    "gemini-3.6-flash",
     "gemini-1.5-flash",
-    "gemini-3.6-flash"
+    "gemini-1.5-pro",
+    "gemini-3.1-pro-preview"
   ];
 
   let allErrors = [];
