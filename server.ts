@@ -303,23 +303,31 @@ function findFullPlayer(identifier: string, pool: any[]) {
 
 app.post('/api/analyze/trades', async (req, res) => {
   try {
-    const { teams } = req.body;
-    const prompt = `Analiza estos equipos de NBA Fantasy y sugiere 3 traspasos win-win.
+    const { teams, myTeamId } = req.body;
+
+    // Identificar el equipo principal
+    const myTeam = (teams || []).find((t: any) => t.id === String(myTeamId));
+    const myTeamName = myTeam ? myTeam.name : "mi equipo";
+
+    const prompt = `Analiza los equipos de esta liga de NBA Fantasy y sugiere 3 traspasos win-win donde SIEMPRE participe el equipo "${myTeamName}" (ID: ${myTeamId}).
+
     Responde SOLO un array JSON de objetos:
     [{
-      "proposerTeamName": "Nombre del Equipo A",
-      "receiverTeamName": "Nombre del Equipo B",
-      "proposerSends": ["NOMBRE_O_ID_JUGADOR"],
-      "receiverSends": ["NOMBRE_O_ID_JUGADOR"],
+      "proposerTeamName": "${myTeamName}",
+      "receiverTeamName": "Nombre del otro equipo",
+      "proposerSends": ["ID_O_NOMBRE_JUGADOR_DE_MI_EQUIPO"],
+      "receiverSends": ["ID_O_NOMBRE_JUGADOR_DEL_OTRO_EQUIPO"],
       "mlAnalysis": {
-        "summary": "Explicación",
-        "proposerBenefit": "Beneficio A",
-        "receiverBenefit": "Beneficio B",
+        "summary": "Explicación de por qué beneficia a ambos",
+        "proposerBenefit": "Qué gana ${myTeamName}",
+        "receiverBenefit": "Qué gana el receptor",
         "verdict": "EXCELLENT",
-        "scoreChangeProposer": 1.1,
-        "scoreChangeReceiver": 1.1
+        "scoreChangeProposer": 5.0,
+        "scoreChangeReceiver": 4.5
       }
-    }]`;
+    }]
+
+    IMPORTANTE: El equipo "${myTeamName}" DEBE ser el proponente en todas las sugerencias.`;
 
     let result = await askAI(prompt, teams);
 
