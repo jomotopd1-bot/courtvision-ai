@@ -204,19 +204,21 @@ export default function WaiverWire({ roster, categoryPrefs, getFullUrl = (p) => 
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {recommendation.weakestCategories.map((cat, idx) => {
-                    const ratio = Math.min((cat.average / cat.targetAverage) * 100, 100);
+                  {(recommendation.weakestCategories || []).map((cat, idx) => {
+                    const avg = cat.average || 0;
+                    const target = cat.targetAverage || 1;
+                    const ratio = Math.min((avg / target) * 100, 100);
                     return (
                       <div key={idx} className="bg-neutral-950/60 border border-neutral-800/80 p-4 rounded-xl space-y-3 flex flex-col justify-between">
                         <div className="space-y-1">
-                          <span className="text-xs font-black text-orange-400 tracking-tight">{cat.category}</span>
-                          <p className="text-[10px] text-neutral-500 leading-relaxed font-medium">{cat.description}</p>
+                          <span className="text-xs font-black text-orange-400 tracking-tight">{cat.category || 'N/A'}</span>
+                          <p className="text-[10px] text-neutral-500 leading-relaxed font-medium">{cat.description || ''}</p>
                         </div>
                         
                         <div className="space-y-1.5 pt-2 border-t border-neutral-800/60">
                           <div className="flex justify-between items-baseline text-[10px]">
-                            <span className="text-neutral-500 font-medium">Promedio: <strong className="text-neutral-300 font-mono font-bold">{cat.average}</strong></span>
-                            <span className="text-neutral-500 font-medium">Meta: <strong className="text-neutral-400 font-mono font-bold">{cat.targetAverage}</strong></span>
+                            <span className="text-neutral-500 font-medium">Promedio: <strong className="text-neutral-300 font-mono font-bold">{avg}</strong></span>
+                            <span className="text-neutral-500 font-medium">Meta: <strong className="text-neutral-400 font-mono font-bold">{target}</strong></span>
                           </div>
                           
                           {/* PROGRESS BAR */}
@@ -245,9 +247,9 @@ export default function WaiverWire({ roster, categoryPrefs, getFullUrl = (p) => 
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {recommendation.recommendedPlayers.map((player) => (
+                  {(recommendation.recommendedPlayers || []).map((player) => (
                     <div
-                      key={player.id}
+                      key={player.id || Math.random().toString()}
                       className="bg-neutral-900/40 rounded-2xl border border-neutral-800 p-5 flex flex-col justify-between gap-4 hover:border-orange-500/30 transition-all group"
                     >
                       {/* CARD HEADER */}
@@ -255,14 +257,14 @@ export default function WaiverWire({ roster, categoryPrefs, getFullUrl = (p) => 
                         <div className="space-y-1">
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <span className="text-xs font-bold text-neutral-100 group-hover:text-orange-400 transition">
-                              {player.name}
+                              {player.name || 'Desconocido'}
                             </span>
                             <span className="text-[9px] bg-neutral-800 text-neutral-400 px-1 rounded font-mono font-bold">
-                              {player.nbaTeam}
+                              {player.nbaTeam || 'N/A'}
                             </span>
                           </div>
                           <div className="flex gap-1">
-                            {player.positions.map((pos) => (
+                            {(player.positions || []).map((pos) => (
                               <span key={pos} className="text-[8px] bg-neutral-950 border border-neutral-800 text-orange-400 font-bold px-1.5 py-0.5 rounded-md">
                                 {pos}
                               </span>
@@ -273,13 +275,13 @@ export default function WaiverWire({ roster, categoryPrefs, getFullUrl = (p) => 
                         {/* FIT SCORE CIRCLE */}
                         <div className="flex flex-col items-end">
                           <span className={`text-xs font-mono font-extrabold px-2 py-0.5 rounded-lg border ${
-                            player.fitScore >= 80 
+                            (player.fitScore || 0) >= 80
                               ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' 
-                              : player.fitScore >= 60 
+                              : (player.fitScore || 0) >= 60
                                 ? 'bg-orange-500/10 text-orange-400 border-orange-500/20' 
                                 : 'bg-neutral-800 text-neutral-400 border-neutral-700'
                           }`}>
-                            {player.fitScore}% Fit
+                            {player.fitScore || 0}% Fit
                           </span>
                           <span className="text-[8px] text-neutral-500 font-bold uppercase tracking-wider mt-0.5">Compatibilidad</span>
                         </div>
@@ -293,37 +295,37 @@ export default function WaiverWire({ roster, categoryPrefs, getFullUrl = (p) => 
                         {activeKeys.includes('pts') && (
                           <div className="space-y-0.5">
                             <span className="text-[8px] text-neutral-500 font-bold block">PTS</span>
-                            <span className="text-[10px] font-bold text-neutral-300 font-mono">{player.stats.pts}</span>
+                            <span className="text-[10px] font-bold text-neutral-300 font-mono">{player.stats?.pts || 0}</span>
                           </div>
                         )}
                         {activeKeys.includes('ast') && (
                           <div className="space-y-0.5">
                             <span className="text-[8px] text-neutral-500 font-bold block">AST</span>
-                            <span className="text-[10px] font-bold text-neutral-300 font-mono">{player.stats.ast}</span>
+                            <span className="text-[10px] font-bold text-neutral-300 font-mono">{player.stats?.ast || 0}</span>
                           </div>
                         )}
                         {activeKeys.includes('reb') && (
                           <div className="space-y-0.5">
                             <span className="text-[8px] text-neutral-500 font-bold block">REB</span>
-                            <span className="text-[10px] font-bold text-neutral-300 font-mono">{player.stats.reb}</span>
+                            <span className="text-[10px] font-bold text-neutral-300 font-mono">{player.stats?.reb || 0}</span>
                           </div>
                         )}
                         {activeKeys.includes('stl') && (
                           <div className="space-y-0.5">
                             <span className="text-[8px] text-neutral-500 font-bold block">STL</span>
-                            <span className="text-[10px] font-bold text-neutral-300 font-mono">{player.stats.stl}</span>
+                            <span className="text-[10px] font-bold text-neutral-300 font-mono">{player.stats?.stl || 0}</span>
                           </div>
                         )}
                         {activeKeys.includes('blk') && (
                           <div className="space-y-0.5">
                             <span className="text-[8px] text-neutral-500 font-bold block">BLK</span>
-                            <span className="text-[10px] font-bold text-neutral-300 font-mono">{player.stats.blk}</span>
+                            <span className="text-[10px] font-bold text-neutral-300 font-mono">{player.stats?.blk || 0}</span>
                           </div>
                         )}
                         {activeKeys.includes('tpm') && (
                           <div className="space-y-0.5">
                             <span className="text-[8px] text-neutral-500 font-bold block">3PM</span>
-                            <span className="text-[10px] font-bold text-neutral-300 font-mono">{player.stats.tpm}</span>
+                            <span className="text-[10px] font-bold text-neutral-300 font-mono">{player.stats?.tpm || 0}</span>
                           </div>
                         )}
                       </div>
@@ -331,13 +333,13 @@ export default function WaiverWire({ roster, categoryPrefs, getFullUrl = (p) => 
                       {/* EXPLANATION */}
                       <div className="space-y-2">
                         <p className="text-[11px] text-neutral-400 leading-relaxed font-medium">
-                          {player.reason}
+                          {player.reason || ''}
                         </p>
                         
                         <div className="flex items-center gap-1.5 bg-orange-500/5 rounded-lg p-2 border border-orange-500/10">
                           <ArrowUpRight className="w-3.5 h-3.5 text-orange-500" />
                           <span className="text-[10px] text-neutral-300 font-bold">
-                            Impacto proyectado: <span className="text-orange-400">{player.impactDescription}</span>
+                            Impacto proyectado: <span className="text-orange-400">{player.impactDescription || 'N/A'}</span>
                           </span>
                         </div>
                       </div>

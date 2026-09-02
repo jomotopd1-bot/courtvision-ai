@@ -18,12 +18,12 @@ export default function OpponentForecast({ userTeam, opponentTeam, categoryPrefs
 
   const filteredHighRiskCategories = useMemo(() => {
     if (!forecast) return [];
-    return forecast.highRiskCategories.filter((c) => !categoryPrefs || categoryPrefs[c.category] !== false);
+    return (forecast.highRiskCategories || []).filter((c) => !categoryPrefs || categoryPrefs[c.category] !== false);
   }, [forecast, categoryPrefs]);
 
   const filteredCategoryComparisons = useMemo(() => {
     if (!forecast) return [];
-    return forecast.categoryComparisons.filter((c) => !categoryPrefs || categoryPrefs[c.category] !== false);
+    return (forecast.categoryComparisons || []).filter((c) => !categoryPrefs || categoryPrefs[c.category] !== false);
   }, [forecast, categoryPrefs]);
 
   // loading steps for premium user experience
@@ -471,22 +471,22 @@ export default function OpponentForecast({ userTeam, opponentTeam, categoryPrefs
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {forecast.keyRivalPlayers.map((player, i) => (
+              {(forecast.keyRivalPlayers || []).map((player, i) => (
                 <div 
                   key={i} 
                   className="bg-neutral-900/30 rounded-xl border border-neutral-800 p-4 flex flex-col justify-between space-y-3"
                 >
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between gap-4">
-                      <h5 className="text-xs font-black text-neutral-100">{player.name}</h5>
+                      <h5 className="text-xs font-black text-neutral-100">{player.name || 'N/A'}</h5>
                       <span className="px-2 py-0.5 rounded text-[9px] font-bold font-mono bg-red-500/10 text-red-400 border border-red-500/20 uppercase tracking-wider shrink-0">
                         Peligro
                       </span>
                     </div>
                     <p className="text-[10px] font-bold font-mono text-orange-400 bg-orange-500/5 border border-orange-500/10 px-2 py-1 rounded w-fit">
-                      🔥 {player.statsHighlight}
+                      🔥 {player.statsHighlight || ''}
                     </p>
-                    <p className="text-xs text-neutral-400 leading-relaxed">{player.threatDescription}</p>
+                    <p className="text-xs text-neutral-400 leading-relaxed">{player.threatDescription || ''}</p>
                   </div>
                 </div>
               ))}

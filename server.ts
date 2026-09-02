@@ -80,6 +80,7 @@ function compactData(input: any) {
     const ftPct = s.fta > 0 ? (s.ftm / s.fta).toFixed(3) : "0.000";
 
     return {
+      id: p.id, // Mantener ID para reconexión de datos
       n: p.name,
       pos: p.positions,
       s: {
@@ -229,24 +230,32 @@ app.post('/api/espn/sync', async (req, res) => {
       record: { wins: rt.record?.overall?.wins || 0, losses: rt.record?.overall?.losses || 0, ties: rt.record?.overall?.ties || 0 },
       roster: (rt.roster?.entries || []).map((re: any) => {
         const p = re.playerPoolEntry?.player || {};
-        const stats = (p.stats || []).find((s: any) => s.statSourceId === 0 && s.statSplitTypeId === 0)?.averageStats || {};
+        // Intentar encontrar estadísticas en múltiples lugares (Actual, Proyectado, Promedios)
+        const statsArray = p.stats || [];
+        const seasonStats = statsArray.find((s: any) => s.statSourceId === 0 && s.statSplitTypeId === 0)?.averageStats || {};
+        const last7Stats = statsArray.find((s: any) => s.statSourceId === 0 && s.statSplitTypeId === 1)?.averageStats || {};
+        const projectedStats = statsArray.find((s: any) => s.statSourceId === 1 && s.statSplitTypeId === 0)?.averageStats || {};
+
+        // Helper para obtener el valor más fiable de una estadística
+        const getS = (id: string) => seasonStats[id] || last7Stats[id] || projectedStats[id] || 0;
+
         return {
           id: String(p.id),
-          name: p.fullName || 'Jugador',
-          nbaTeam: NBA_TEAMS[p.proTeamId] || 'NBA',
+          name: p.fullName || "Jugador",
+          nbaTeam: NBA_TEAMS[p.proTeamId] || "NBA",
           positions: (p.eligibleSlots || []).filter((s: number) => POSITIONS[s]).map((s: number) => POSITIONS[s]),
           stats: {
-            pts: stats['0'] || 0,
-            ast: stats['3'] || 0,
-            reb: stats['6'] || 0,
-            stl: stats['2'] || 0,
-            blk: stats['1'] || 0,
-            tpm: stats['17'] || 0,
-            tov: stats['11'] || 0,
-            fgm: stats['19'] || 0,
-            fga: stats['20'] || 0,
-            ftm: stats['21'] || 0,
-            fta: stats['22'] || 0
+            pts: getS('0'),
+            ast: getS('3'),
+            reb: getS('6'),
+            stl: getS('2'),
+            blk: getS('1'),
+            tpm: getS('17'),
+            tov: getS('11'),
+            fgm: getS('19'),
+            fga: getS('20'),
+            ftm: getS('21'),
+            fta: getS('22')
           }
         };
       })
@@ -260,24 +269,85 @@ app.post('/api/espn/sync', async (req, res) => {
 
 // --- AI ANALYSIS ROUTES ---
 
+// Helper de búsqueda ultra-flexible para encontrar jugadores por ID o Nombre (difuso)
+function findFullPlayer(identifier: string, pool: any[]) {
+  if (!identifier) return { name: "N/A", stats: {}, positions: ["N/A"] };
+
+  const idStr = String(identifier).trim().toLowerCase();
+
+  // 1. Intentar por ID exacto
+  let found = pool.find(p => String(p.id).toLowerCase() === idStr);
+  if (found) return found;
+
+  // 2. Intentar por Nombre exacto (limpiando espacios)
+  found = pool.find(p => p.name?.toLowerCase().trim() === idStr);
+  if (found) return found;
+
+  // 3. Intentar por Nombre contenido (p.ej. "LeBron" encuentra "LeBron James")
+  found = pool.find(p => {
+    const pName = (p.name || "").toLowerCase();
+    return pName.includes(idStr) || idStr.includes(pName);
+  });
+  if (found) return found;
+
+  // 4. Búsqueda por apellidos o iniciales (p.ej. "L. James" o "James")
+  const parts = idStr.split(' ');
+  if (parts.length > 0) {
+    const lastPart = parts[parts.length - 1];
+    found = pool.find(p => (p.name || "").toLowerCase().includes(lastPart));
+    if (found) return found;
+  }
+
+  return { name: identifier, stats: {}, positions: ["N/A"], nbaTeam: "NBA" };
+}
+
 app.post('/api/analyze/trades', async (req, res) => {
   try {
     const { teams } = req.body;
-    const prompt = `Analiza estos equipos de NBA Fantasy y sugiere 3 traspasos win-win. Responde SOLO un array JSON de objetos: [{"proposerTeamName":"...","receiverTeamName":"...","proposerSends":["..."],"receiverSends":["..."],"mlAnalysis":{"summary":"...","verdict":"EXCELLENT","scoreChangeProposer":1.1,"scoreChangeReceiver":1.1}}]`;
+    const prompt = `Analiza estos equipos de NBA Fantasy y sugiere 3 traspasos win-win.
+    Responde SOLO un array JSON de objetos:
+    [{
+      "proposerTeamName": "Nombre del Equipo A",
+      "receiverTeamName": "Nombre del Equipo B",
+      "proposerSends": ["NOMBRE_O_ID_JUGADOR"],
+      "receiverSends": ["NOMBRE_O_ID_JUGADOR"],
+      "mlAnalysis": {
+        "summary": "Explicación",
+        "proposerBenefit": "Beneficio A",
+        "receiverBenefit": "Beneficio B",
+        "verdict": "EXCELLENT",
+        "scoreChangeProposer": 1.1,
+        "scoreChangeReceiver": 1.1
+      }
+    }]`;
+
     let result = await askAI(prompt, teams);
 
-    // Asegurarnos de que el resultado sea un array
     if (!Array.isArray(result)) {
-      if (result && typeof result === 'object') {
-        const firstArray = Object.values(result).find(v => Array.isArray(v));
-        if (firstArray) result = firstArray;
-        else result = [];
-      } else {
-        result = [];
-      }
+      const possibleArray = Object.values(result).find(v => Array.isArray(v));
+      result = Array.isArray(possibleArray) ? possibleArray : [];
     }
 
-    res.json(result);
+    const allPlayers = (teams || []).flatMap((t: any) => t.roster || []);
+
+    // Re-hidratación robusta
+    const hydratedResult = result.map((trade: any) => ({
+      id: Math.random().toString(36).substr(2, 9),
+      proposerTeamName: trade.proposerTeamName || "Equipo A",
+      receiverTeamName: trade.receiverTeamName || "Equipo B",
+      proposerSends: (trade.proposerSends || []).map((id: string) => findFullPlayer(id, allPlayers)),
+      receiverSends: (trade.receiverSends || []).map((id: string) => findFullPlayer(id, allPlayers)),
+      mlAnalysis: {
+        summary: trade.mlAnalysis?.summary || "Análisis no disponible",
+        proposerBenefit: trade.mlAnalysis?.proposerBenefit || "Mejora general",
+        receiverBenefit: trade.mlAnalysis?.receiverBenefit || "Mejora general",
+        verdict: trade.mlAnalysis?.verdict || "FAVORABLE",
+        scoreChangeProposer: trade.mlAnalysis?.scoreChangeProposer || 0,
+        scoreChangeReceiver: trade.mlAnalysis?.scoreChangeReceiver || 0
+      }
+    }));
+
+    res.json(hydratedResult);
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }
@@ -307,9 +377,21 @@ app.post('/api/analyze/trade/manual', async (req, res) => {
 app.post('/api/analyze/waiver', async (req, res) => {
   try {
     const { roster } = req.body;
-    const prompt = `Analiza este roster y recomienda 3 agentes libres. Responde JSON: {"weakestCategories":[{"category":"PTS","average":10,"targetAverage":15,"description":"..."}],"recommendedPlayers":[{"id":"1","name":"...","nbaTeam":"...","positions":["..."],"stats":{"pts":10},"fitScore":90,"reason":"...","impactDescription":"..."}],"aiVerdict":"..."}`;
-    const result = await askAI(prompt, roster);
-    res.json(result);
+    const prompt = `Analiza este roster y recomienda 3 agentes libres. Responde JSON: {"weakestCategories":[{"category":"PTS","average":10,"targetAverage":15,"description":"..."}],"recommendedPlayers":[{"id":"1","name":"...","nbaTeam":"...","positions":["..."],"stats":{"pts":10,"ast":0,"reb":0,"stl":0,"blk":0,"tpm":0},"fitScore":90,"reason":"...","impactDescription":"..."}],"aiVerdict":"..."}`;
+    let result = await askAI(prompt, roster);
+
+    // Asegurar estructura
+    const finalResult = {
+      weakestCategories: result.weakestCategories || [],
+      recommendedPlayers: (result.recommendedPlayers || []).map((p: any) => ({
+        ...p,
+        stats: p.stats || { pts: 0, ast: 0, reb: 0, stl: 0, blk: 0, tpm: 0 }
+      })),
+      aiVerdict: result.aiVerdict || "Análisis no disponible",
+      modelUsed: result.modelUsed
+    };
+
+    res.json(finalResult);
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }
@@ -318,9 +400,22 @@ app.post('/api/analyze/waiver', async (req, res) => {
 app.post('/api/analyze/optimize', async (req, res) => {
   try {
     const { roster } = req.body;
-    const prompt = `Optimiza esta alineación. Responde JSON: {"analysisText":"...","weeklyLineup":{"starters":[],"bench":[]}}`;
-    const result = await askAI(prompt, roster);
-    res.json(result);
+    const prompt = `Optimiza esta alineación. Responde JSON: {"analysisText":"...","weeklyLineup":{"starters":["ID_DEL_JUGADOR"],"bench":["ID_DEL_JUGADOR"]},"categoryStrengths":[],"categoryWeaknesses":[],"waiverTargets":[]}`;
+    let result = await askAI(prompt, roster);
+
+    // Asegurar estructura mínima para evitar fallos en el frontend
+    const finalResult = {
+      analysisText: result.analysisText || "Análisis completado.",
+      weeklyLineup: {
+        starters: (result.weeklyLineup?.starters || []).map((id: string) => roster.find((p: any) => p.id === String(id) || p.name === id)?.name || id),
+        bench: (result.weeklyLineup?.bench || []).map((id: string) => roster.find((p: any) => p.id === String(id) || p.name === id)?.name || id)
+      },
+      categoryStrengths: result.categoryStrengths || [],
+      categoryWeaknesses: result.categoryWeaknesses || [],
+      waiverTargets: result.waiverTargets || []
+    };
+
+    res.json(finalResult);
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }
@@ -329,9 +424,20 @@ app.post('/api/analyze/optimize', async (req, res) => {
 app.post('/api/analyze/draft', async (req, res) => {
   try {
     const { strategy, draftedPlayers } = req.body;
-    const prompt = `Estrategia: ${strategy}. Ya elegidos: ${JSON.stringify(draftedPlayers)}. Sugiere picks. Responde JSON: {"summary":"...","recommendedPicks":[{"name":"...","team":"...","reason":"...","expectedRound":1}]}`;
-    const result = await askAI(prompt);
-    res.json(result);
+    const prompt = `Estrategia: ${strategy}. Ya elegidos: ${JSON.stringify(draftedPlayers)}. Sugiere picks. Responde JSON: {"summary":"...","recommendedPicks":[{"name":"...","team":"...","reason":"...","expectedRound":1}],"sleepers":[],"rookies":[],"breakouts":[],"puntStrategyAdvice":"..."}`;
+    let result = await askAI(prompt);
+
+    const finalResult = {
+      summary: result.summary || "No hay resumen.",
+      recommendedPicks: result.recommendedPicks || [],
+      sleepers: result.sleepers || [],
+      rookies: result.rookies || [],
+      breakouts: result.breakouts || [],
+      puntStrategyAdvice: result.puntStrategyAdvice || "Sigue tu estrategia.",
+      modelUsed: result.modelUsed
+    };
+
+    res.json(finalResult);
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }
@@ -340,9 +446,19 @@ app.post('/api/analyze/draft', async (req, res) => {
 app.post('/api/analyze/opponent', async (req, res) => {
   try {
     const { userRoster, opponentRoster, userTeamName, opponentTeamName } = req.body;
-    const prompt = `Compara ${userTeamName} contra ${opponentTeamName}. Responde JSON: {"categoryComparisons":[],"aiVerdict":"..."}`;
-    const result = await askAI(prompt, { user: userRoster, opp: opponentRoster });
-    res.json(result);
+    const prompt = `Compara ${userTeamName} contra ${opponentTeamName}. Responde JSON: {"categoryComparisons":[],"highRiskCategories":[],"aiVerdict":"...","keyRivalPlayers":[]}`;
+    let result = await askAI(prompt, { user: userRoster, opp: opponentRoster });
+
+    const finalResult = {
+      categoryComparisons: result.categoryComparisons || [],
+      highRiskCategories: result.highRiskCategories || [],
+      aiVerdict: result.aiVerdict || "Análisis no disponible.",
+      keyRivalPlayers: result.keyRivalPlayers || [],
+      recentFormPredictions: result.recentFormPredictions || [],
+      modelUsed: result.modelUsed
+    };
+
+    res.json(finalResult);
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }

@@ -486,7 +486,7 @@ export default function DraftAdvisor({ getFullUrl = (p: string) => p }: { getFul
                         Top 20 Selecciones Recomendadas
                       </h4>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
-                        {recommendation.recommendedPicks.map((pick, idx) => (
+                        {(recommendation.recommendedPicks || []).map((pick, idx) => (
                           <div
                             key={`pick-${idx}`}
                             className="bg-neutral-900 border border-neutral-800/80 p-4 rounded-xl hover:border-orange-500/40 transition duration-200"
@@ -494,16 +494,16 @@ export default function DraftAdvisor({ getFullUrl = (p: string) => p }: { getFul
                             <div className="flex items-center justify-between gap-2 mb-2">
                               <div>
                                 <h5 className="font-bold text-white text-sm flex items-center gap-1.5">
-                                  <span className="text-orange-500/70 text-xs font-mono">{idx + 1}.</span> {pick.name}
+                                  <span className="text-orange-500/70 text-xs font-mono">{idx + 1}.</span> {pick.name || 'N/A'}
                                 </h5>
-                                <p className="text-[10px] text-neutral-500 font-mono uppercase">{pick.team}</p>
+                                <p className="text-[10px] text-neutral-500 font-mono uppercase">{pick.team || ''}</p>
                               </div>
                               <span className="px-2.5 py-1 bg-orange-500/20 border border-orange-500/30 text-[10px] font-extrabold text-orange-400 rounded-lg">
-                                {pick.expectedRound}
+                                {pick.expectedRound || ''}
                               </span>
                             </div>
                             <p className="text-xs text-neutral-300 leading-relaxed font-light">
-                              {pick.reason}
+                              {pick.reason || ''}
                             </p>
                           </div>
                         ))}
@@ -521,7 +521,7 @@ export default function DraftAdvisor({ getFullUrl = (p: string) => p }: { getFul
                       Jugadores infravalorados cuyo ADP (Average Draft Position) actual es significativamente menor que su valor real de producción.
                     </p>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {recommendation.sleepers.map((sleeper, idx) => (
+                      {(recommendation.sleepers || []).map((sleeper, idx) => (
                         <div
                           key={`sleeper-${idx}`}
                           className="bg-neutral-900 border border-neutral-800/80 p-4.5 rounded-xl hover:border-orange-500/30 transition duration-200 space-y-2.5 group"
@@ -529,16 +529,16 @@ export default function DraftAdvisor({ getFullUrl = (p: string) => p }: { getFul
                           <div className="flex items-center justify-between gap-2">
                             <div>
                               <h5 className="font-bold text-white text-xs group-hover:text-orange-400 transition-colors">
-                                {sleeper.name}
+                                {sleeper.name || 'N/A'}
                               </h5>
-                              <p className="text-[10px] text-neutral-500 font-mono uppercase">{sleeper.team}</p>
+                              <p className="text-[10px] text-neutral-500 font-mono uppercase">{sleeper.team || ''}</p>
                             </div>
                             <span className="px-2.5 py-1 bg-orange-500/10 border border-orange-500/20 text-[10px] font-extrabold text-orange-400 rounded-lg">
-                              {sleeper.expectedRound}
+                              {sleeper.expectedRound || ''}
                             </span>
                           </div>
                           <p className="text-xs text-neutral-400 leading-relaxed font-light">
-                            {sleeper.reason}
+                            {sleeper.reason || ''}
                           </p>
                         </div>
                       ))}
@@ -554,21 +554,21 @@ export default function DraftAdvisor({ getFullUrl = (p: string) => p }: { getFul
                         Novatos (Rookies) con Impacto Inmediato
                       </h4>
                       <div className="space-y-4">
-                        {recommendation.rookies.map((rookie, idx) => (
+                        {(recommendation.rookies || []).map((rookie, idx) => (
                           <div
                             key={`rookie-${idx}`}
                             className="bg-neutral-900/60 border border-neutral-800 p-4 rounded-xl hover:border-emerald-500/20 transition-all duration-200 space-y-2"
                           >
                             <div className="flex items-center justify-between gap-2">
                               <div>
-                                <h5 className="font-bold text-white text-xs">{rookie.name}</h5>
-                                <span className="text-[9px] text-neutral-500 font-mono uppercase">{rookie.team}</span>
+                                <h5 className="font-bold text-white text-xs">{rookie.name || 'N/A'}</h5>
+                                <span className="text-[9px] text-neutral-500 font-mono uppercase">{rookie.team || ''}</span>
                               </div>
                               <span className="px-2 py-0.5 bg-emerald-500/10 border border-emerald-500/20 text-[9px] font-bold text-emerald-400 rounded">
-                                {rookie.expectedRound}
+                                {rookie.expectedRound || ''}
                               </span>
                             </div>
-                            <p className="text-[11px] text-neutral-400 leading-relaxed font-light">{rookie.reason}</p>
+                            <p className="text-[11px] text-neutral-400 leading-relaxed font-light">{rookie.reason || ''}</p>
                           </div>
                         ))}
                       </div>
@@ -581,21 +581,21 @@ export default function DraftAdvisor({ getFullUrl = (p: string) => p }: { getFul
                         Candidatos a Explotar (Breakouts)
                       </h4>
                       <div className="space-y-4">
-                        {recommendation.breakouts.map((breakout, idx) => (
+                        {(recommendation.breakouts || []).map((breakout, idx) => (
                           <div
                             key={`breakout-${idx}`}
                             className="bg-neutral-900/60 border border-neutral-800 p-4 rounded-xl hover:border-yellow-500/20 transition-all duration-200 space-y-2"
                           >
                             <div className="flex items-center justify-between gap-2">
                               <div>
-                                <h5 className="font-bold text-white text-xs">{breakout.name}</h5>
-                                <span className="text-[9px] text-neutral-500 font-mono uppercase">{breakout.team}</span>
+                                <h5 className="font-bold text-white text-xs">{breakout.name || 'N/A'}</h5>
+                                <span className="text-[9px] text-neutral-500 font-mono uppercase">{breakout.team || ''}</span>
                               </div>
                               <span className="px-2 py-0.5 bg-yellow-500/10 border border-yellow-500/20 text-[9px] font-bold text-yellow-400 rounded">
-                                {breakout.expectedRound}
+                                {breakout.expectedRound || ''}
                               </span>
                             </div>
-                            <p className="text-[11px] text-neutral-400 leading-relaxed font-light">{breakout.reason}</p>
+                            <p className="text-[11px] text-neutral-400 leading-relaxed font-light">{breakout.reason || ''}</p>
                           </div>
                         ))}
                       </div>

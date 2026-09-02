@@ -368,8 +368,8 @@ export default function TradeAnalyzer({ teams, categoryPrefs, myTeamId, language
             <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-orange-600/10 text-orange-400 border border-orange-500/20 uppercase tracking-wider">
               AI Trade Agent
             </span>
-            {suggestions && suggestions.length > 0 && (
-              suggestions[0].mlAnalysis.modelUsed === 'offline-analytics' ? (
+            {suggestions && (suggestions || []).length > 0 && (
+              (suggestions[0].mlAnalysis?.modelUsed === 'offline-analytics' ? (
                 <>
                   <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
                   <span className="text-[9px] text-amber-500 font-bold font-mono px-1.5 py-0.5 bg-amber-500/10 border border-amber-500/20 rounded">
@@ -380,10 +380,10 @@ export default function TradeAnalyzer({ teams, categoryPrefs, myTeamId, language
                 <>
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
                   <span className="text-[9px] text-emerald-400 font-bold font-mono px-1.5 py-0.5 bg-emerald-500/10 border border-emerald-500/20 rounded">
-                    SISTEMA IA: {(suggestions[0].mlAnalysis.modelUsed || 'GEMINI-3.5-FLASH').toUpperCase()}
+                    SISTEMA IA: {(suggestions[0].mlAnalysis?.modelUsed || 'GEMINI-3.6-FLASH').toUpperCase()}
                   </span>
                 </>
-              )
+              ))
             )}
           </div>
           <h3 className="text-lg font-bold text-neutral-100 tracking-tight flex items-center gap-2">

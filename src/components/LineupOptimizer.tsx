@@ -176,7 +176,7 @@ export default function LineupOptimizer({ roster, teamName, getFullUrl = (p) => 
                     Iniciar (Starters)
                   </h5>
                   <div className="space-y-1.5 pl-2">
-                    {result.weeklyLineup.starters.map((player, idx) => (
+                    {(result.weeklyLineup?.starters || []).map((player, idx) => (
                       <div key={idx} className="flex items-center gap-2 text-xs text-neutral-200 font-medium">
                         <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
                         {player}
@@ -190,7 +190,7 @@ export default function LineupOptimizer({ roster, teamName, getFullUrl = (p) => 
                     Banquillo (Bench)
                   </h5>
                   <div className="space-y-1.5 pl-2">
-                    {result.weeklyLineup.bench.map((player, idx) => (
+                    {(result.weeklyLineup?.bench || []).map((player, idx) => (
                       <div key={idx} className="flex items-center gap-2 text-xs text-neutral-400">
                         <span className="w-1.5 h-1.5 bg-neutral-700 rounded-full"></span>
                         {player}
@@ -209,7 +209,7 @@ export default function LineupOptimizer({ roster, teamName, getFullUrl = (p) => 
                   Fortalezas Estadísticas
                 </h4>
                 <div className="space-y-1.5">
-                  {result.categoryStrengths.map((strength, idx) => (
+                  {(result.categoryStrengths || []).map((strength, idx) => (
                     <div key={idx} className="text-xs text-neutral-300 flex items-start gap-2">
                       <span className="text-emerald-400 mt-0.5">✓</span>
                       <span>{strength}</span>
@@ -224,7 +224,7 @@ export default function LineupOptimizer({ roster, teamName, getFullUrl = (p) => 
                   Debilidades Estadísticas
                 </h4>
                 <div className="space-y-1.5">
-                  {result.categoryWeaknesses.map((weakness, idx) => (
+                  {(result.categoryWeaknesses || []).map((weakness, idx) => (
                     <div key={idx} className="text-xs text-neutral-300 flex items-start gap-2">
                       <span className="text-amber-500 mt-0.5">⚠</span>
                       <span>{weakness}</span>
@@ -242,7 +242,7 @@ export default function LineupOptimizer({ roster, teamName, getFullUrl = (p) => 
               Recomendación para la Agencia Libre (Waivers)
             </h4>
             <div className="space-y-2">
-              {result.waiverTargets.map((target, idx) => (
+              {(result.waiverTargets || []).map((target, idx) => (
                 <div key={idx} className="text-xs text-neutral-300 flex items-start gap-2">
                   <span className="text-orange-500 font-bold">•</span>
                   <span>{target}</span>
