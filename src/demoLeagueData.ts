@@ -1300,4 +1300,34 @@ export const MOCK_LEAGUE: League = {
   matchups: []
 };
 
-export const MOCK_NEWS: NewsAlert[] = [];
+export const MOCK_NEWS: NewsAlert[] = [
+  {
+    id: '1',
+    timestamp: new Date().toISOString(),
+    title: 'Anthony Davis (LAL) en duda por molestias en la pantorrilla',
+    content: 'El pívot estelar de los Lakers es duda (Questionable) para el juego de mañana contra los Warriors. Se recomienda vigilar su estado antes del cierre de alineaciones.',
+    type: 'injury',
+    affectedPlayer: 'Anthony Davis',
+    severity: 'warning',
+    read: false
+  },
+  {
+    id: '2',
+    timestamp: new Date(Date.now() - 3600000).toISOString(),
+    title: 'Kyrie Irving (DAL) descartado oficialmente para el partido de hoy',
+    content: 'Irving no jugará hoy por descanso (load management). Se espera que Luka Doncic asuma mayor carga ofensiva en Dallas.',
+    type: 'injury',
+    affectedPlayer: 'Kyrie Irving',
+    severity: 'critical',
+    read: false
+  },
+  {
+    id: '3',
+    timestamp: new Date(Date.now() - 7200000).toISOString(),
+    title: 'Rumores de traspaso: Zach LaVine podría salir de Chicago',
+    content: 'Múltiples fuentes indican que los Bulls están intensificando las conversaciones para mover al escolta antes del cierre de mercado.',
+    type: 'breaking',
+    severity: 'info',
+    read: false
+  }
+];

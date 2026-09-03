@@ -234,6 +234,8 @@ app.post('/api/espn/sync', async (req, res) => {
           name: p.fullName,
           nbaTeam: NBA_TEAMS[p.proTeamId] || "NBA",
           positions: (p.eligibleSlots || []).filter((s: number) => POSITIONS[s]).map((s: number) => POSITIONS[s]),
+          injuryStatus: p.injuryStatus || 'ACTIVE',
+          injuryDetails: p.injuryDetails || '',
           stats: {
             pts: getS('0'), ast: getS('3'), reb: getS('6'), stl: getS('2'), blk: getS('1'), tpm: getS('17')
           }
@@ -259,6 +261,8 @@ app.post('/api/espn/sync', async (req, res) => {
           name: p.fullName || "Jugador",
           nbaTeam: NBA_TEAMS[p.proTeamId] || "NBA",
           positions: (p.eligibleSlots || []).filter((s: number) => POSITIONS[s]).map((s: number) => POSITIONS[s]),
+          injuryStatus: p.injuryStatus || 'ACTIVE',
+          injuryDetails: p.injuryDetails || '',
           stats: {
             pts: getS('0'), ast: getS('3'), reb: getS('6'), stl: getS('2'), blk: getS('1'), tpm: getS('17'),
             tov: getS('11'), fgm: getS('19'), fga: getS('20'), ftm: getS('21'), fta: getS('22')
